@@ -1,0 +1,70 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Sale {
+  id        Int         @id @default(autoincrement())
+  stage     String
+  isActive  Boolean     @default(true)
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+  call      Call[]
+  Live      Live[]
+  Messenger Messenger[]
+}
+
+model Call {
+  id        Int      @id @default(autoincrement())
+  agentId   Int?
+  date      DateTime
+  phone     String
+  duration  Int
+  price     Int
+  status    String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  agent     Sale?    @relation(fields: [agentId], references: [id])
+}
+
+model Live {
+  id        Int      @id @default(autoincrement())
+  agentId   Int?
+  date      DateTime
+  count     Int
+  geo       geo      @default(KZ)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  agent     Sale?    @relation(fields: [agentId], references: [id])
+
+  @@unique([agentId, geo, date])
+}
+
+model Messenger {
+  id        Int      @id @default(autoincrement())
+  agentId   Int
+  price     Int      @default(10)
+  date      DateTime
+  type      TYPE
+  createdAt DateTime @default(now())
+  updatedAt DateTime
+  geo       String   @default("KZ")
+  Sale      Sale     @relation(fields: [agentId], references: [id])
+}
+
+enum TYPE {
+  Whatsapp
+  Telegram
+  Viber
+}
+
+enum geo {
+  KZ
+  KG
+  UZ
+  BY
+}
