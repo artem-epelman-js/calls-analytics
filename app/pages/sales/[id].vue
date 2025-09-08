@@ -11,15 +11,13 @@ const saleId = route.params.id as string
 
 const items = ref(null)
 const live = ref([])
-
 const sales = ref([])
-const selectedStage = ref(null)
-const arr = [10, 20, 30, 40]
-console.log(selectedStage)
-
-
 const page = ref(1);
-
+const file = ref<File | null>(null)
+const activeToggle = ref(null) // todo написать переключатель isActive
+const isLoading = ref(false)
+const selectedStage = ref(null)
+const arr = ref([10, 20, 30, 40])
 const state = reactive({
   skip: 0,
   take: 5,
@@ -31,76 +29,16 @@ const state = reactive({
 });
 
 
-
-const fetchParams = computed(() => ({
-  ...state,
-  skip: (page.value - 1) * state.take,
-}));
-
 async function getLive() {
   live.value = await $fetch(`/api/live`)
 }
-
-
-
-
-
-
-
-
-
 async function getData() {
   const skip = (page.value - 1) * state.take;
   items.value = await $fetch(`/api/sales/${saleId}`, {params: {...state, skip}})
 }
-
 async function getSales() {
   sales.value = await $fetch('/api/sales')
 }
-
-
-const stageOptions = computed(() =>
-    [...sales.value]
-        .sort((a, b) => a.stage.localeCompare(b.stage)) // сортируем по алфавиту
-        .map(s => ({ label: s.stage, value: s.id }))
-)
-
-watch([page, () => state.take, () => state.status], () => {
-  getData()
-}, { deep: true })
-
-
-
-
-
-
-onMounted(async () => {
-  await getSales()
-  await getData()
-  await getLive()
-})
-
-
-
-
-
-function onSelectChange() {
-  if (!selectedStage.value) return
-  router.push({ path: `/sales/${selectedStage.value}` })
-}
-
-const file = ref<File | null>(null)
-const isLoading = ref(false)
-
-function handleFileChange(event: Event) {
-  const target = event.target as HTMLInputElement
-  if (target.files && target.files.length > 0) {
-    file.value = target.files[0]
-  } else {
-    file.value = null
-  }
-}
-
 async function sendDate() {
   await useFetch(`/api/sales/${saleId}`, {
     params: {
@@ -110,7 +48,6 @@ async function sendDate() {
   })
   await getData()
 }
-
 async function upload() {
   if (!file.value) {
     alert('Пожалуйста, выберите файл.');
@@ -147,6 +84,39 @@ async function upload() {
   }
 }
 
+function onSelectChange() {
+  if (!selectedStage.value) return
+  router.push({ path: `/sales/${selectedStage.value}` })
+}
+function handleFileChange(event: Event) {
+  const target = event.target as HTMLInputElement
+  if (target.files && target.files.length > 0) {
+    file.value = target.files[0]
+  } else {
+    file.value = null
+  }
+}
+function statusToggle(event: Event) {
+  // Проверяем, что все объекты в цепочке существуют
+  if (items && items.value && items.value.sale) {
+    // Инвертируем значение isActive напрямую
+    items.value.sale.isActive = !items.value.sale.isActive;
+
+    // Выводим обновлённое значение в консоль
+    console.log(items.value.sale.isActive);
+  } else {
+    // Опционально: выводим ошибку, если объект не найден
+    console.error('Не удалось найти sale или isActive');
+  }
+}
+
+const stageOptions = computed(() => [...sales.value]
+    .sort((a, b) => a.stage.localeCompare(b.stage)) // сортируем по алфавиту
+    .map(s => ({ label: s.stage, value: s.id })))
+const fetchParams = computed(() => ({
+  ...state,
+  skip: (page.value - 1) * state.take,
+}));
 const result = computed(() => {
   if (!items.value) return
   return new Intl.NumberFormat('ru-RU', {
@@ -156,13 +126,28 @@ const result = computed(() => {
     maximumFractionDigits: 2,
   }).format((items?.value?.callAgregation?._sum?.duration / 60) * 0.25)
 })
-
 const totalDuration = computed(() => {
   if (!items?.value?.callAgregation?._sum?.duration) return
   const totalDurationSec = items?.value.callAgregation?._sum?.duration;
   const duration = new Date(0, 0, 0, 0, 0, totalDurationSec);
   return format(duration, 'HH:mm:ss');
 })
+
+watch([
+  page,
+  () => state.take,
+  () => state.status,
+  () => state.startDate,
+  () => state.endDate
+], () => {
+  getData()
+})
+onMounted(async () => {
+  await getSales()
+  await getData()
+  await getLive()
+})
+
 </script>
 
 <template>
@@ -174,12 +159,14 @@ const totalDuration = computed(() => {
           <h1 class="text-3xl font-bold text-gray-700 dark:text-gray-300">
             {{items?.sale?.stage}}
             <USelect
-                class="w-100"
+                class="w-60"
                 variant="ghost"
                 v-model="selectedStage"
                 :items="stageOptions"
                 @change="onSelectChange"
-            />
+            >
+             <UButton variant="ghost">Выбор пользователя</UButton>
+            </USelect>
           </h1>
         </div>
       </div>
@@ -193,13 +180,13 @@ const totalDuration = computed(() => {
         <div>
           <p class="text-sm font-medium text-gray-500 dark:text-gray-400">Статус</p>
           <div class="flex items-center gap-2 mt-2">
-            <UBadge :color="items?.sale?.isActive ? 'green' : 'red'" variant="subtle">
+            <UBadge :color="items?.sale?.isActive ? 'primary' : 'error'" variant="subtle">
               {{ items?.sale?.isActive ? 'Активен' : 'Неактивен' }}
             </UBadge>
             <UCheckbox
                 class="flex justify-end"
                 :model-value="items?.sale?.isActive"
-                disabled
+                @click="statusToggle"
             />
           </div>
         </div>
@@ -248,22 +235,26 @@ const totalDuration = computed(() => {
         <UForm @submit.prevent="sendDate" :state="state" class="flex flex-col lg:flex-row gap-4 flex-1">
           <div class="flex-1">
             <UFormField label="Начальная дата">
-              <UInput type="date" v-model="state.startDate" />
+              <USeparator class="py-5 w-40"/>
+              <UInput  size="xl" type="date" v-model="state.startDate" />
             </UFormField>
           </div>
           <div class="flex-1">
             <UFormField label="Конечная дата">
-              <UInput type="date" v-model="state.endDate" />
+              <USeparator class="py-5 w-40"/>
+              <UInput size="xl" type="date" v-model="state.endDate" />
             </UFormField>
           </div>
-          <UButton type="submit" class="self-end">Применить</UButton>
         </UForm>
 
-        <div class="w-24">
+        <div class="w-40">
           <USelect
               v-model="state.take"
               :items="arr"
-          />
+              size="xl"
+          >
+            Показать {{state.take}} записей
+          </USelect>
         </div>
       </div>
     </UCard>
