@@ -6,7 +6,7 @@ const { data, error, refresh, pending } = await useFetch('/api/sales')
 
 const q = ref('')
 const perPage = ref(10)
-const page = ref(1)
+const page = ref(1)` `
 
 const filtered = computed(() => {
   if (!data.value) return []
