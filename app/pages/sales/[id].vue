@@ -14,7 +14,7 @@ const live = ref([])
 const sales = ref([])
 const page = ref(1);
 const file = ref<File | null>(null)
-const activeToggle = ref(null) // todo написать переключатель isActive
+const activeToggle = ref(null)
 const isLoading = ref(false)
 const selectedStage = ref(null)
 const arr = ref([10, 20, 30, 40])
@@ -35,6 +35,7 @@ async function getLive() {
 async function getData() {
   const skip = (page.value - 1) * state.take;
   items.value = await $fetch(`/api/sales/${saleId}`, {params: {...state, skip}})
+  selectedStage.value = items.value.sale?.id
 }
 async function getSales() {
   sales.value = await $fetch('/api/sales')
@@ -84,10 +85,7 @@ async function upload() {
   }
 }
 
-function onSelectChange() {
-  if (!selectedStage.value) return
-  router.push({ path: `/sales/${selectedStage.value}` })
-}
+
 function handleFileChange(event: Event) {
   const target = event.target as HTMLInputElement
   if (target.files && target.files.length > 0) {
@@ -111,7 +109,6 @@ function statusToggle(event: Event) {
 }
 
 const stageOptions = computed(() => [...sales.value]
-    .sort((a, b) => a.stage.localeCompare(b.stage)) // сортируем по алфавиту
     .map(s => ({ label: s.stage, value: s.id })))
 const fetchParams = computed(() => ({
   ...state,
@@ -139,8 +136,9 @@ watch([
   () => state.status,
   () => state.startDate,
   () => state.endDate
-], () => {
-  getData()
+], () => {getData()})
+watch(selectedStage,()=>{
+  router.push({ path: `/sales/${selectedStage.value}` })
 })
 onMounted(async () => {
   await getSales()
@@ -151,21 +149,18 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div class="flex flex-col gap-6">
+  <UContainer class="flex flex-col gap-6">
 
     <UCard>
       <div class="flex items-center justify-between gap-4 border-b pb-4">
         <div class="flex items-center gap-2">
           <h1 class="text-3xl font-bold text-gray-700 dark:text-gray-300">
-            {{items?.sale?.stage}}
             <USelect
-                class="w-60"
-                variant="ghost"
+                class="w-40"
                 v-model="selectedStage"
                 :items="stageOptions"
-                @change="onSelectChange"
+                size="xl"
             >
-             <UButton variant="ghost">Выбор пользователя</UButton>
             </USelect>
           </h1>
         </div>
@@ -202,18 +197,18 @@ onMounted(async () => {
 
     <UCard>
       <div class="grid grid-cols-2 gap-4">
-        <div class="flex flex-col gap-2">
-          <p>Количество звонков - {{ items?.callAgregation?._count }}</p>
-          <p>Количество секунд в наборе/диалоге - {{ items?.callAgregation?._sum?.duration }}</p>
-          <p>Расход по телефонии - {{ result }}</p>
-          <p>Всего времени на линии - {{ totalDuration }}</p>
+        <div class="grid grid-cols-2 gap-2">
+          <p>Кол-во звонков:</p><p>{{ items?.callAgregation?._count }}</p>
+          <p>Кол-во сек. в звонке:</p><p> {{ items?.callAgregation?._sum?.duration }}</p>
+          <p>Расход по телефонии:</p><p> {{ result }}</p>
+          <p>Всего на линии:</p><p> {{ totalDuration }}</p>
         </div>
 
         <div class="flex flex-col justify-end">
           <UFileUpload
               v-model="file"
               label="Загрузить файл"
-              class="w-full"
+              class="w-100 flex self-end"
           />
 
           <UButton
@@ -221,11 +216,9 @@ onMounted(async () => {
               :loading="isLoading"
               :disabled="!file"
               class="w-30 flex self-end mt-4"
-
           >
             Отправить файл
           </UButton>
-
         </div>
       </div>
     </UCard>
@@ -270,5 +263,5 @@ onMounted(async () => {
         />
       </div>
     </UCard>
-  </div>
+  </UContainer>
 </template>

@@ -1,3 +1,3 @@
 <template>
-  <div>Главная страница</div>
+  <ULink to="/sales/1">Абрамов</ULink>
 </template>
