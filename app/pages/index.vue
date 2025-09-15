@@ -1,3 +1,4 @@
-<template>
-  <ULink to="/sales/1">Абрамов</ULink>
-</template>
+<script setup lang="ts">
+import { navigateTo } from '#app'
+navigateTo('/sales')
+</script>

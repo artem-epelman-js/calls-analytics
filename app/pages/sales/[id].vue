@@ -37,6 +37,10 @@ async function getData() {
   items.value = await $fetch(`/api/sales/${saleId}`, {params: {...state, skip}})
   selectedStage.value = items.value.sale?.id
 }
+
+
+
+
 async function getSales() {
   sales.value = await $fetch('/api/sales')
 }
@@ -156,7 +160,7 @@ onMounted(async () => {
         <div class="flex items-center gap-2">
           <h1 class="text-3xl font-bold text-gray-700 dark:text-gray-300">
             <USelect
-                class="w-40"
+                class="w-50"
                 v-model="selectedStage"
                 :items="stageOptions"
                 size="xl"
@@ -178,11 +182,7 @@ onMounted(async () => {
             <UBadge :color="items?.sale?.isActive ? 'primary' : 'error'" variant="subtle">
               {{ items?.sale?.isActive ? 'Активен' : 'Неактивен' }}
             </UBadge>
-            <UCheckbox
-                class="flex justify-end"
-                :model-value="items?.sale?.isActive"
-                @click="statusToggle"
-            />
+
           </div>
         </div>
 
@@ -229,20 +229,27 @@ onMounted(async () => {
           <div class="flex-1">
             <UFormField label="Начальная дата">
               <USeparator class="py-5 w-40"/>
-              <UInput  size="xl" type="date" v-model="state.startDate" />
+              <UInput
+                  size="xl"
+                  type="date"
+                  v-model="state.startDate" />
             </UFormField>
           </div>
           <div class="flex-1">
             <UFormField label="Конечная дата">
               <USeparator class="py-5 w-40"/>
-              <UInput size="xl" type="date" v-model="state.endDate" />
+              <UInput
+                  size="xl"
+                  type="date"
+                  v-model="state.endDate"
+              />
             </UFormField>
           </div>
         </UForm>
 
         <div class="w-40">
           <USelect
-              v-model="state.take"
+              v-model.number="state.take"
               :items="arr"
               size="xl"
           >
@@ -258,8 +265,8 @@ onMounted(async () => {
       <div v-if="items?.callAgregation?._count > state.take" class="mt-6 flex justify-center">
         <UPagination
             v-model:page="page"
-            :page-count="state.take"
-            :total="items?.callAgregation?._count"
+            :total="items?.callAgregation?._count || 0"
+            :items-per-page=20
         />
       </div>
     </UCard>

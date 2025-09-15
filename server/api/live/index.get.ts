@@ -23,7 +23,6 @@ export default defineEventHandler(async (event: H3Event) => {
         });
 
 
-
         return {
             live,
             liveCount,

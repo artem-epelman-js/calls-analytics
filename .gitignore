@@ -4,10 +4,12 @@
 .nuxt
 .nitro
 .cache
+bun.lockb
 dist
 
 # Node dependencies
 node_modules
+
 
 # Logs
 logs

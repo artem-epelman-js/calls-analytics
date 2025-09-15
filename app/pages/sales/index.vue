@@ -1,82 +1,69 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
 import { useFetch } from '#app'
 
-const { data, error, refresh, pending } = await useFetch('/api/sales')
 
-const q = ref('')
-const perPage = ref(10)
-const page = ref(1)` `
+type Sale = {
+  id: number
+  stage: string
+  isActive: boolean
+  createdAt: string
+  updatedAt: string
+}
 
-const filtered = computed(() => {
-  if (!data.value) return []
-  if (!q.value) return data.value
-  return data.value.filter((sale: any) =>
-      sale.stage?.toLowerCase().includes(q.value.toLowerCase()) ||
-      String(sale.id).includes(q.value)
-  )
+const { data, error, pending, refresh } = await useFetch('/api/sales', {
+  key: 'sales',
 })
+const togglingId = ref<number | null>(null)
 
-const pages = computed(() => Math.max(1, Math.ceil(filtered.value.length / perPage.value)))
-
-const paginated = computed(() => {
-  const start = (page.value - 1) * perPage.value
-  return filtered.value.slice(start, start + perPage.value)
-})
+async function toggleSale(sale: { id: number; isActive: boolean }, newVal: boolean) {
+  const prev = sale.isActive
+  sale.isActive = newVal                     // оптимистичное обновление
+  togglingId.value = sale.id
+  try {
+    await $fetch(`/api/sales/${sale.id}`, {
+      method: 'PATCH',
+      body: { isActive: newVal },
+    })
+    // опционально: await refresh()
+  } catch (e) {
+    console.error(e)
+    sale.isActive = prev                     // откат при ошибке
+  } finally {
+    togglingId.value = null
+  }
+}
 </script>
 
 <template>
-  <UContainer class="py-8 space-y-6">
-    <div class="flex justify-between items-center">
-      <h1 class="text-2xl font-semibold">Sales Dashboard</h1>
-      <UButton color="primary" icon="i-heroicons-arrow-path" :loading="pending" @click="refresh">
-        Refresh
+  <UContainer class="py-10 max-w-md mx-auto space-y-6">
+    <div class="flex items-center justify-between">
+      <h1 class="text-2xl font-semibold">Sales</h1>
+      <UButton color="primary" icon="i-heroicons-arrow-path"
+               :loading="pending" @click="refresh">
+        Обновить
       </UButton>
     </div>
 
-    <UInput
-        v-model="q"
-        placeholder="Search by stage or id"
-        icon="i-heroicons-magnifying-glass"
-        class="max-w-md"
-    />
-
-    <UTable :rows="paginated" :columns="[
-      { key: 'id', label: 'ID' },
-      { key: 'stage', label: 'Stage' },
-      { key: 'isActive', label: 'Active' },
-      { key: 'createdAt', label: 'Created' },
-      { key: 'updatedAt', label: 'Updated' }
-    ]">
-      <template #isActive-data="{ row }">
-        <UBadge :color="row.isActive ? 'green' : 'red'">
-          {{ row.isActive ? 'Yes' : 'No' }}
-        </UBadge>
-      </template>
-
-      <template #createdAt-data="{ row }">
-        {{ new Date(row.createdAt).toLocaleString() }}
-      </template>
-
-      <template #updatedAt-data="{ row }">
-        {{ new Date(row.updatedAt).toLocaleString() }}
-      </template>
-
-      <template #actions-data="{ row }">
-        <UButton size="xs" color="gray" @click="console.log(row)">View</UButton>
-      </template>
-    </UTable>
-
-    <div class="flex justify-between items-center">
-      <div class="text-sm text-gray-600">Total: {{ filtered.length }}</div>
-      <UPagination v-model="page" :page-count="perPage" :total="filtered.length" />
-      <USelect
-          v-model="perPage"
-          :options="[{label:'5',value:5},{label:'10',value:10},{label:'25',value:25}]"
-          class="w-20"
-      />
+    <div v-if="pending" class="text-gray-500 text-center">
+      Загрузка...
     </div>
 
-    <UAlert v-if="error" color="red" title="Error" :description="error.message" />
+    <UAlert v-else-if="error" color="red" title="Ошибка"
+            :description="error.message" />
+
+    <div v-else class="gap-x-40 grid grid-cols-5">
+      <div v-for="sale in data" :key="sale.id" class="p-4 gap-x-2 flex hover:cursor-pointer">
+        <ULink :to="{ name: 'sales-id', params: { id: sale.id } }" class="hover:underline">
+          {{ sale.stage }}
+        </ULink>
+
+        <UCheckbox
+            :model-value="sale.isActive"
+            :disabled="togglingId === sale.id"
+            @update:model-value="(val) => toggleSale(sale, val)"
+            class="hover:cursor-pointer"
+        />
+      </div>
+    </div>
   </UContainer>
 </template>

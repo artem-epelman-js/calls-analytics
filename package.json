@@ -22,6 +22,10 @@
     "tailwindcss": "^4.1.13"
   },
   "devDependencies": {
-    "@types/papaparse": "^5.3.16"
+    "@types/papaparse": "^5.3.16",
+    "@types/bun": "latest"
+  },
+  "peerDependencies": {
+    "typescript": "^5"
   }
 }
