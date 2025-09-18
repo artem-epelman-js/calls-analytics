@@ -48,7 +48,12 @@ watch(selectedStage.value, () => {
   <UContainer class="py-8 max-w-5xl mx-auto space-y-6">
     <div class="flex justify-between gap-4">
       <h1 class="text-2xl font-semibold">Sales</h1>
-      <UButton color="primary" icon="i-heroicons-arrow-path" :loading="pending" @click="refresh">
+      <UButton
+          color="primary"
+          icon="i-heroicons-arrow-path"
+          :loading="pending"
+          @click="refresh"
+      >
         Обновить
       </UButton>
     </div>
@@ -67,7 +72,11 @@ watch(selectedStage.value, () => {
                transition cursor-pointer"
       >
         <span class="font-medium">{{ sale.stage }}</span>
-        <UBadge :color="sale.isActive ? 'primary' : 'error'" variant="subtle">
+        <UBadge
+            :color="sale.isActive ? 'primary' : 'neutral'"
+            variant="subtle"
+            class="transition-colors duration-400"
+        >
           {{ sale.isActive ? 'On' : 'Off' }}
         </UBadge>
       </ULink>
