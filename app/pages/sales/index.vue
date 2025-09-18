@@ -65,6 +65,7 @@ watch(selectedStage.value, () => {
     <div v-else class="grid gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5">
       <ULink
           v-for="sale in data"
+
           :key="sale.id"
           :to="{ name: 'sales-id', params: { id: sale.id } }"
           class="flex items-center justify-between px-3 py-2 rounded-md
