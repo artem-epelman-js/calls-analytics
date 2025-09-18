@@ -15,7 +15,7 @@ model Sale {
   updatedAt DateTime    @updatedAt
   call      Call[]
   Live      Live[]
-  Messenger Messenger[]
+  Messanger Messanger[]
 }
 
 model Call {
@@ -32,7 +32,7 @@ model Call {
   @@unique([phone, date])
 }
 
-model Live { //todo переделать модель под возможность перебрасывания лидов между юзерами, добавить поле email/phone
+model Live {
   id        Int      @id @default(autoincrement())
   agentId   Int?
   date      DateTime
@@ -45,12 +45,13 @@ model Live { //todo переделать модель под возможнос�
   @@unique([agentId, geo, date])
 }
 
-model Messenger {
+model Messanger {
   id        Int      @id @default(autoincrement())
   agentId   Int
   price     Int      @default(10)
   date      DateTime
   type      TYPE
+  isRecovery Boolean
   createdAt DateTime @default(now())
   updatedAt DateTime
   geo       String   @default("KZ")

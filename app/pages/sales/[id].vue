@@ -7,12 +7,13 @@ import { useFetch } from '#app';
 
 const route = useRoute()
 const router = useRouter()
-const saleId = route.params.id as string
+const agentId = route.params.id as string
 
 const items = ref(null)
 const live = ref([])
 const sales = ref([])
 const page = ref(1);
+const totalLeaveByAgentId = ref(0)
 const file = ref<File | null>(null)
 const activeToggle = ref(null)
 const isLoading = ref(false)
@@ -29,12 +30,19 @@ const state = reactive({
 });
 
 
-async function getLive() {
-  live.value = await $fetch(`/api/live`)
+async function getLive(id?: number | string) {
+  const currentId = Number(id ?? selectedStage.value ?? agentId)
+  live.value = await $fetch(`/api/live`, { params: { saleId: currentId } })
 }
+
+async function getTotalLeaveByAgentId() {
+  totalLeaveByAgentId.value =  await $fetch(`/api/live/${agentId}`)
+}
+
+
 async function getData() {
   const skip = (page.value - 1) * state.take;
-  items.value = await $fetch(`/api/sales/${saleId}`, {params: {...state, skip}})
+  items.value = await $fetch(`/api/sales/${agentId}`, {params: {...state, skip}})
   selectedStage.value = items.value.sale?.id
 }
 
@@ -141,6 +149,8 @@ watch([
   () => state.startDate,
   () => state.endDate
 ], () => {getData()})
+
+
 watch(selectedStage,()=>{
   router.push({ path: `/sales/${selectedStage.value}` })
 })
@@ -148,13 +158,16 @@ onMounted(async () => {
   await getSales()
   await getData()
   await getLive()
+  await getTotalLeaveByAgentId()
 })
 
 </script>
 
 <template>
   <UContainer class="flex flex-col gap-6">
-
+    <div class="mb-6 rounded-2xl p-6 shadow-sm bg-gradient-to-r from-slate-900 to-slate-800 text-white">
+      <h2 class="text-2xl font-semibold">Форма выгрузки звонков в базу</h2>
+    </div>
     <UCard>
       <div class="flex items-center justify-between gap-4 border-b pb-4">
         <div class="flex items-center gap-2">
@@ -198,6 +211,8 @@ onMounted(async () => {
     <UCard>
       <div class="grid grid-cols-2 gap-4">
         <div class="grid grid-cols-2 gap-2">
+
+          <p>Кол-во лайва:</p><p>{{ totalLeaveByAgentId.totalLeads }}</p>
           <p>Кол-во звонков:</p><p>{{ items?.callAgregation?._count }}</p>
           <p>Кол-во сек. в звонке:</p><p> {{ items?.callAgregation?._sum?.duration }}</p>
           <p>Расход по телефонии:</p><p> {{ result }}</p>

@@ -5,27 +5,28 @@ import type { H3Event } from 'h3'
 export default defineEventHandler(async (event: H3Event) => {
     try {
         const query = getQuery(event)
-        const agentId = query.agentId ? Number(query.agentId) : undefined
+        const id = query.id as string | undefined
+        const agentId = id ? Number(id) : undefined
 
         const whereClause = agentId ? { agentId } : {}
 
-        const [rows, agg] = await Promise.all([
-            prisma.live.findMany({
+        const [rows, countAgg] = await Promise.all([
+            prisma.messanger.findMany({
                 where: whereClause,
                 orderBy: { createdAt: 'desc' },
                 include: {
-                    agent: { select: { id: true, stage: true } },
+                    agent: { select: { id: true, stage: true } }, // ⬅️ важно
                 },
             }),
-            prisma.live.aggregate({
+            prisma.messenger.aggregate({
                 where: whereClause,
-                _sum: { count: true },   // ← суммируем значения колонки count
+                _count: true, // вернёт { _count: number }
             }),
         ])
 
         return {
-            live: rows,                        // сами записи
-            totalLeads: agg?._sum.count ?? 0,    // сумма count по указанному agentId
+            messanger: rows,                 // ← единый ключ с массивом
+            messangerCount: countAgg._count,     // ← число
         }
     } catch (error) {
         console.error('Error fetching live:', error)

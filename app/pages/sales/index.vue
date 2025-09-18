@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { useFetch } from '#app'
-
+import { computed, ref } from 'vue'
 
 type Sale = {
   id: number
@@ -10,60 +10,101 @@ type Sale = {
   updatedAt: string
 }
 
-const { data, error, pending, refresh } = await useFetch('/api/sales', {
-  key: 'sales',
-})
+const { data, error, pending, refresh } = await useFetch<Sale[]>('/api/sales', { key: 'sales' })
+const showControls = ref(false)
+const selectedStage = ref<number | null>(null)   // теперь тут id
 const togglingId = ref<number | null>(null)
 
-async function toggleSale(sale: { id: number; isActive: boolean }, newVal: boolean) {
+const stageOptions = computed(() =>
+    (data.value || []).map(s => ({ label: s.stage, value: s.id }))
+)
+
+async function toggleSale(id: number) {
+  const sale = data.value?.find(s => s.id === id)
+  if (!sale) return
   const prev = sale.isActive
-  sale.isActive = newVal                     // оптимистичное обновление
-  togglingId.value = sale.id
+  sale.isActive = !sale.isActive
+  togglingId.value = id
   try {
-    await $fetch(`/api/sales/${sale.id}`, {
+    await $fetch(`/api/sales/${id}`, {
       method: 'PATCH',
-      body: { isActive: newVal },
+      body: { isActive: sale.isActive },
     })
-    // опционально: await refresh()
   } catch (e) {
     console.error(e)
-    sale.isActive = prev                     // откат при ошибке
+    sale.isActive = prev
   } finally {
     togglingId.value = null
   }
 }
+
+watch(selectedStage.value, () => {
+  console.log(selectedStage)
+})
+
 </script>
 
 <template>
-  <UContainer class="py-10 max-w-md mx-auto space-y-6">
-    <div class="flex items-center justify-between">
+  <UContainer class="py-8 max-w-5xl mx-auto space-y-6">
+    <div class="flex justify-between gap-4">
       <h1 class="text-2xl font-semibold">Sales</h1>
-      <UButton color="primary" icon="i-heroicons-arrow-path"
-               :loading="pending" @click="refresh">
+      <UButton color="primary" icon="i-heroicons-arrow-path" :loading="pending" @click="refresh">
         Обновить
       </UButton>
     </div>
 
-    <div v-if="pending" class="text-gray-500 text-center">
-      Загрузка...
+    <div v-if="pending" class="text-gray-500 text-center">Загрузка...</div>
+    <UAlert v-else-if="error" color="red" :description="error.message" />
+
+    <!-- Сетка карточек -->
+    <div v-else class="grid gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5">
+      <ULink
+          v-for="sale in data"
+          :key="sale.id"
+          :to="{ name: 'sales-id', params: { id: sale.id } }"
+          class="flex items-center justify-between px-3 py-2 rounded-md
+               bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700
+               transition cursor-pointer"
+      >
+        <span class="font-medium">{{ sale.stage }}</span>
+        <UBadge :color="sale.isActive ? 'primary' : 'error'" variant="subtle">
+          {{ sale.isActive ? 'On' : 'Off' }}
+        </UBadge>
+      </ULink>
     </div>
 
-    <UAlert v-else-if="error" color="red" title="Ошибка"
-            :description="error.message" />
+    <!-- Селект + кнопка -->
+    <UCheckbox
+        v-model="showControls"
+        label="Показать управление активностью"
+        class="mb-2"
+    />
 
-    <div v-else class="gap-x-40 grid grid-cols-5">
-      <div v-for="sale in data" :key="sale.id" class="p-4 gap-x-2 flex hover:cursor-pointer">
-        <ULink :to="{ name: 'sales-id', params: { id: sale.id } }" class="hover:underline">
-          {{ sale.stage }}
-        </ULink>
+    <!-- Селект + кнопка -->
+    <div
+        v-if="showControls"
+        class="flex gap-4 items-center"
+    >
+      <USelect
+          class="w-64"
+          v-model="selectedStage"
+          :items="stageOptions"
+          placeholder="Выберите стейдж"
+      />
 
-        <UCheckbox
-            :model-value="sale.isActive"
-            :disabled="togglingId === sale.id"
-            @update:model-value="(val) => toggleSale(sale, val)"
-            class="hover:cursor-pointer"
-        />
-      </div>
+      <UButton
+          color="neutral"
+          :disabled="!selectedStage"
+          :loading="togglingId === selectedStage"
+          @click="toggleSale(selectedStage!)"
+      >
+        {{
+          data?.find(s => s.id === selectedStage)?.isActive
+              ? 'Деактивировать'
+              : 'Активировать'
+        }}
+      </UButton>
     </div>
+
   </UContainer>
 </template>
