@@ -1,73 +1,88 @@
-<script setup> import {format} from "date-fns";
-import {UDropdownMenu} from "#components";
-import {UButton} from "#components";
+<script setup lang="ts">
+import { format } from 'date-fns'
+import { computed, ref, reactive, onMounted, h } from 'vue'
+import { UDropdownMenu, UButton, UTable, UForm, UFormField, UInput, USelect, UCard, UContainer, UCheckbox } from '#components'
 
 
-const { data: messanger, refresh: refreshLive } = await useFetch('/api/messanger', { key: 'messanger' })
-const {data: sales} = await useFetch('/api/sales')
-const items = ref([])
-const liveData = ref([])
-const messangerType = ref(['Whatsapp', 'Telegram'])
-const form = reactive({agentId: null, date: '', count: null, messanger: ''})
+const { data: messanger, refresh: refreshMessanger } = await useFetch('/api/messanger', { key: 'messanger' })
+const { data: sales } = await useFetch('/api/sales')
+
+
+const items = ref<{ label: string; value: number }[]>([])
+const messangerData = ref<{ label: string; value: number }[]>([])
+
+
+const typeArr = ref(['TELEGRAM', 'WHATSAPP']) // ← синхронизируй с Prisma enum
+
+const form = reactive<{
+  agentId: number | null
+  date: string
+  count: number | null
+  type: string | null
+}>({
+  agentId: null,
+  date: '',
+  count: null,
+  type: null
+})
+
+
 const columns = [
   {
     id: 'action',
     header: 'Действие',
-    cell: ({ row }) =>
+    cell: ({ row }: any) =>
         h(
             UDropdownMenu,
             { content: { align: 'end' }, items: actionsItems(row) },
-            {
-              // ⬅️ важно: слоты передаём объектом
-              default: () => h(UButton, {
-                icon: 'i-lucide-ellipsis-vertical',
-                variant: 'subtle',
-                size: 'xl',
-                class: 'cursor-pointer'
-              })
-            }
+            () =>
+                h(UButton, {
+                  icon: 'i-lucide-ellipsis-vertical',
+                  variant: 'subtle',
+                  size: 'xl',
+                  class: 'cursor-pointer'
+                })
         )
   },
   { id: 'id', header: 'ID', accessorKey: 'id' },
   {
     id: 'agentStage',
     header: 'Стейдж',
-    accessorFn: (r) => r?.agent?.stage ?? '',
-    sortingFn: 'alphanumeric',
+    accessorFn: (row: any) => row?.agent?.stage ?? '', // agent должен приходить из API с include
+    sortingFn: 'alphanumeric'
   },
-  { id: 'count', header: 'Кол-во', accessorKey: 'count' },
+  { id: 'count', header: 'Колл-во', accessorKey: 'count' },
   {
     id: 'date',
     header: 'Дата выдачи',
-    accessorFn: (r) => r?.date,
-    cell: ({ row }) => format(new Date(row.original.date), 'dd-MM'),
+    accessorFn: (row: any) => row?.date,
+    cell: ({ row }: any) => format(new Date(row.original.date), 'dd-MM')
   },
-  { id: 'messanger', header: 'Мессенджер', accessorKey: 'messanger' },
+  { id: 'type', header: 'Тип', accessorKey: 'type' }
 ]
 
 
 async function submit () {
-  const payload = { ...form, date: form.date ? new Date(form.date).toISOString() : null }
+  const payload = {
+    agentId: form.agentId,
+    date: form.date ? new Date(form.date).toISOString() : null,
+    count: form.count,
+    type: form.type
+  }
   await $fetch('/api/messanger', { method: 'POST', body: payload })
-  await refreshLive()
+  await refreshMessanger()
 }
 
 
-async function deleteRecord () {
-  await $fetch(`/api/messanger/1`, { method: 'DELETE' }) // если вдруг нужен для теста
-  await refreshLive()
-}
-
-function actionsItems(row) {
+function actionsItems(row: any) {
   return [[
     {
       label: 'Удалить',
       icon: 'i-heroicons-trash-20-solid',
       onSelect: async () => {
-        console.log('select fired for id:', row.original?.id)
         try {
           await $fetch(`/api/messanger/${row.original.id}`, { method: 'DELETE' })
-          await refreshLive()
+          await refreshMessanger()
         } catch (e) {
           console.error(e)
         }
@@ -77,34 +92,26 @@ function actionsItems(row) {
 }
 
 
-
-
-
 const rows = computed(() =>
     (Array.isArray(messanger.value) ? messanger.value : messanger.value?.data ?? [])
         .slice()
-        .sort((a, b) => new Date(b.date) - new Date(a.date))
+        .sort((a: any, b: any) => +new Date(b.date) - +new Date(a.date))
 )
 
 
 onMounted(() => {
-  if (sales.value?.length > 0) {
-    items.value = sales.value.map((item) => {
-      return {label: item?.stage, value: item?.id}
-    })
+  if (Array.isArray(sales.value) && sales.value.length > 0) {
+    items.value = sales.value.map((s: any) => ({ label: s?.stage, value: s?.id }))
   }
 
+  if (Array.isArray(messanger.value) && messanger.value.length > 0) {
+    messangerData.value = messanger.value.map((m: any) => ({ label: m?.type, value: m?.id }))
+  }
 
-
-
-  form.agentId = items.value[0]?.value || null
-  form.messanger = messangerType.value[0] || null
+  form.agentId = items.value[0]?.value ?? null
+  form.type = typeArr.value[0] ?? null
 })
-
-
-
 </script>
-
 
 <template>
   <UContainer>
@@ -115,7 +122,6 @@ onMounted(() => {
 
     <UCard class="rounded-2xl shadow-sm">
       <UForm
-          :schema="schema"
           :state="form"
           @submit="submit"
           class="grid grid-cols-1 md:grid-cols-2 gap-4"
@@ -139,13 +145,12 @@ onMounted(() => {
           <UInput v-model.number="form.count" type="number" min="0" />
         </UFormField>
 
-        <UFormField label="Мессенджер" name="messanger">
+        <UFormField label="Тип" name="type">
+          <!-- массив строк — просто :items="typeArr", без option/value-attribute -->
           <USelect
-              v-model="form.messanger"
-              :items="messangerType"
-              option-attribute="label"
-              value-attribute="value"
-              placeholder="Выбери гео"
+              v-model="form.type"
+              :items="typeArr"
+              placeholder="Выбери тип"
           />
         </UFormField>
 
@@ -162,12 +167,7 @@ onMounted(() => {
         <h3 class="text-lg font-medium">История внесений</h3>
         <span class="text-sm text-gray-500">Всего: {{ rows.length }}</span>
       </div>
-
-      <UTable
-          :data="rows"
-          :columns="columns"
-      />
+       <UTable :data="messanger.messanger" :columns="columns" />
     </UCard>
   </UContainer>
-
 </template>
