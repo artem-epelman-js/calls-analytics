@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { useFetch } from '#app'
 import { computed, ref } from 'vue'
+import {UButton} from "#components";
 
 type Sale = {
   id: number
@@ -13,34 +14,64 @@ type Sale = {
 const { data, error, pending, refresh } = await useFetch<Sale[]>('/api/sales', { key: 'sales' })
 const showControls = ref(false)
 const selectedStage = ref<number | null>(null)   // теперь тут id
+
+
+const form = reactive({
+  stage: '',
+  isActive: false     // или null, если нужно «не выбрано»
+})
 const togglingId = ref<number | null>(null)
 
-const stageOptions = computed(() =>
-    (data.value || []).map(s => ({ label: s.stage, value: s.id }))
-)
+const showCreate = ref(false)
+const stageInput = ref<HTMLInputElement | null>(null)
 
-async function toggleSale(id: number) {
-  const sale = data.value?.find(s => s.id === id)
-  if (!sale) return
-  const prev = sale.isActive
-  sale.isActive = !sale.isActive
-  togglingId.value = id
+function toggleCreate() {
+  showCreate.value = !showCreate.value
+  if (showCreate.value) {
+    nextTick(() => stageInput.value?.focus())
+  }
+}
+
+
+async function submit () {
+  const payload = { stage: form.stage, isActive: form.isActive }
+  await $fetch('/api/sales', { method: 'POST', body: payload })
+  await refresh() // один раз — подтянули свежие данные
+}
+
+
+async function toggleSale(stageId: number) {
   try {
-    await $fetch(`/api/sales/${id}`, {
+    togglingId.value = stageId
+    const sale = data.value.find(s => s.id === stageId)
+    if (!sale) return
+
+    const newStatus = !sale.isActive
+
+    // ⚡ PATCH-запрос с новым значением
+    await $fetch(`/api/sales/${stageId}`, {
       method: 'PATCH',
-      body: { isActive: sale.isActive },
+      body: { isActive: newStatus }
     })
-  } catch (e) {
-    console.error(e)
-    sale.isActive = prev
+
+    // оптимистично меняем локально
+    sale.isActive = newStatus
   } finally {
     togglingId.value = null
   }
 }
 
+const stageOptions = computed(() =>
+    (data.value || []).map(s => ({ label: s.stage, value: s.id })))
+
 watch(selectedStage.value, () => {
   console.log(selectedStage)
 })
+
+
+
+
+
 
 </script>
 
@@ -48,15 +79,66 @@ watch(selectedStage.value, () => {
   <UContainer class="py-8 max-w-5xl mx-auto space-y-6">
     <div class="flex justify-between gap-4">
       <h1 class="text-2xl font-semibold">Sales</h1>
-      <UButton
-          color="primary"
-          icon="i-heroicons-arrow-path"
-          :loading="pending"
-          @click="refresh"
-      >
-        Обновить
-      </UButton>
+      <div class="flex flex-col gap-3 w-full max-w-xl">
+
+        <div class="flex gap-4">
+          <UButton
+              color="primary"
+              icon="i-heroicons-arrow-path"
+              :loading="pending"
+              @click="refresh"
+          >
+            Обновить
+          </UButton>
+
+          <UButton
+              :icon="showCreate ? 'i-lucide-minus' : 'i-lucide-plus'"
+              @click="toggleCreate"
+          >
+            {{ showCreate ? 'Скрыть форму' : 'Добавить сейла' }}
+          </UButton>
+        </div>
+
+        <!-- Форма появляется НИЖЕ кнопки -->
+        <Transition
+            enter-active-class="transition duration-200 ease-out"
+            enter-from-class="opacity-0 -translate-y-1"
+            enter-to-class="opacity-100 translate-y-0"
+            leave-active-class="transition duration-150 ease-in"
+            leave-from-class="opacity-100 translate-y-0"
+            leave-to-class="opacity-0 -translate-y-1"
+        >
+          <UForm
+              v-if="showCreate"
+              :state="form"
+              @submit.prevent="submit"
+              class="grid grid-cols-1 md:grid-cols-2 gap-4 bg-gray-50 dark:bg-gray-800/40 p-4 rounded-xl"
+          >
+            <UFormField label="Стейдж" name="stage">
+              <UInput v-model="form.stage" type="text" ref="stageInput" />
+            </UFormField>
+
+            <UFormField label="Активность" name="isActive">
+              <USelect
+                  v-model="form.isActive"
+                  :items="[
+              { label: 'True', value: true },
+              { label: 'False', value: false }
+            ]"
+                  placeholder="Выберите значение"
+              />
+            </UFormField>
+
+            <div class="md:col-span-2 flex justify-end gap-2">
+              <UButton variant="subtle" @click="showCreate = false">Отмена</UButton>
+              <UButton type="submit" size="lg" class="rounded-xl px-6">Сохранить</UButton>
+            </div>
+          </UForm>
+        </Transition>
+
+      </div>
     </div>
+
 
     <div v-if="pending" class="text-gray-500 text-center">Загрузка...</div>
     <UAlert v-else-if="error" color="red" :description="error.message" />
@@ -81,6 +163,7 @@ watch(selectedStage.value, () => {
           {{ sale.isActive ? 'On' : 'Off' }}
         </UBadge>
       </ULink>
+
     </div>
 
     <!-- Селект + кнопка -->
@@ -96,11 +179,12 @@ watch(selectedStage.value, () => {
         class="flex gap-4 items-center"
     >
       <USelect
-          class="w-64"
           v-model="selectedStage"
           :items="stageOptions"
           placeholder="Выберите стейдж"
+          class="w-40"
       />
+
 
       <UButton
           color="neutral"
