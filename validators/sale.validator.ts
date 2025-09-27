@@ -1,0 +1,15 @@
+import {z} from "zod";
+
+
+export const saleValidator = z.object({
+    stage: z.string()
+        .min(3, 'Минимум 3 буквы')
+        .max(25, 'Максимум 25 буквы'),
+    isActive: z.boolean()
+
+})
+
+
+    //
+    // stage: '',
+    // isActive: false

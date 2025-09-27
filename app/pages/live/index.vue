@@ -2,6 +2,7 @@
 import {UDropdownMenu} from "#components";
 import {UButton} from "#components";
 import {computed, ref} from "vue";
+import {LiveValidator} from "~~/validators/live.validator.js";
 
 
 const { data: live, refresh: refreshLive } = await useFetch('/api/live', { key: 'live' })
@@ -115,7 +116,7 @@ onMounted(() => {
 
     <UCard class="rounded-2xl shadow-sm">
       <UForm
-          :schema="schema"
+          :schema="LiveValidator"
           :state="form"
           @submit="submit"
           class="grid grid-cols-1 md:grid-cols-2 gap-4"

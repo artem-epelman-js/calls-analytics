@@ -10,7 +10,8 @@ export default defineEventHandler(async (event) => {
                 agentId: body.agentId,
                 date: new Date(body.date),
                 count: body.count,
-                type: body.type // должно быть "KZ", "KG", "UZ", "BY"
+                type: body.type, // должно быть "KZ", "KG", "UZ", "BY"
+                isRecovery: body.isRecovery || false,
             }
         })
 

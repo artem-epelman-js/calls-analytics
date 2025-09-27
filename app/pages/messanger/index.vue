@@ -2,6 +2,7 @@
 import { format } from 'date-fns'
 import { computed, ref, reactive, onMounted, h } from 'vue'
 import { UDropdownMenu, UButton, UTable, UForm, UFormField, UInput, USelect, UCard, UContainer, UCheckbox } from '#components'
+import {messangerValidator} from "~~/validators/messanger.validator";
 
 
 const { data: messanger, refresh: refreshMessanger } = await useFetch('/api/messanger', { key: 'messanger' })
@@ -14,16 +15,12 @@ const messangerData = ref<{ label: string; value: number }[]>([])
 
 const typeArr = ref(['TELEGRAM', 'WHATSAPP']) // ← синхронизируй с Prisma enum
 
-const form = reactive<{
-  agentId: number | null
-  date: string
-  count: number | null
-  type: string | null
-}>({
+const form = reactive({
   agentId: null,
   date: '',
   count: null,
-  type: null
+  type: null,
+  isRecovery: null
 })
 
 
@@ -58,7 +55,8 @@ const columns = [
     accessorFn: (row: any) => row?.date,
     cell: ({ row }: any) => format(new Date(row.original.date), 'dd-MM')
   },
-  { id: 'type', header: 'Тип', accessorKey: 'type' }
+  { id: 'type', header: 'Тип', accessorKey: 'type' },
+  { id: 'isRecovery', header: 'Рекавери', accessorKey: 'isRecovery' },
 ]
 
 
@@ -67,7 +65,8 @@ async function submit () {
     agentId: form.agentId,
     date: form.date ? new Date(form.date).toISOString() : null,
     count: form.count,
-    type: form.type
+    type: form.type,
+    isRecovery: form.isRecovery
   }
   await $fetch('/api/messanger', { method: 'POST', body: payload })
   await refreshMessanger()
@@ -122,8 +121,9 @@ onMounted(() => {
 
     <UCard class="rounded-2xl shadow-sm">
       <UForm
-          :state="form"
           @submit="submit"
+          :state="form"
+          :schema="messangerValidator"
           class="grid grid-cols-1 md:grid-cols-2 gap-4"
       >
         <UFormField label="Выберите сейла" name="agentId">
@@ -139,6 +139,17 @@ onMounted(() => {
 
         <UFormField label="Дата" name="date">
           <UInput v-model="form.date" type="date" />
+        </UFormField>
+
+        <UFormField label="Рекавери" name="isRecovery">
+          <USelect
+              v-model="form.isRecovery"
+              :items="[
+              { label: 'True', value: true },
+              { label: 'False', value: false }
+            ]"
+              placeholder='False'
+          />
         </UFormField>
 
         <UFormField label="Колл-во" name="count">
