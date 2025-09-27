@@ -4,6 +4,7 @@ import { useRoute } from 'vue-router'
 import { format } from "date-fns";
 import { useRouter } from 'vue-router'
 import { useFetch } from '#app';
+import {callValidator} from "~~/validators/call.validator";
 
 const route = useRoute()
 const router = useRouter()
@@ -240,7 +241,12 @@ onMounted(async () => {
 
     <UCard>
       <div class="flex flex-col lg:flex-row lg:items-end justify-between gap-6">
-        <UForm @submit.prevent="sendDate" :state="state" class="flex flex-col lg:flex-row gap-4 flex-1">
+        <UForm
+            @submit.prevent="sendDate"
+              :shema="callValidator"
+               :state="state"
+               class="flex flex-col lg:flex-row gap-4 flex-1">
+
           <div class="flex-1">
             <UFormField label="Начальная дата">
               <USeparator class="py-5 w-40"/>

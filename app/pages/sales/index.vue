@@ -2,6 +2,7 @@
 import { useFetch } from '#app'
 import { computed, ref } from 'vue'
 import {UButton} from "#components";
+import {saleValidator} from "~~/validators/sale.validator";
 
 type Sale = {
   id: number
@@ -110,6 +111,7 @@ watch(selectedStage.value, () => {
         >
           <UForm
               v-if="showCreate"
+              :shema="saleValidator"
               :state="form"
               @submit.prevent="submit"
               class="grid grid-cols-1 md:grid-cols-2 gap-4 bg-gray-50 dark:bg-gray-800/40 p-4 rounded-xl"
