@@ -137,7 +137,9 @@ onMounted(() => {
         </UFormField>
 
         <UFormField label="Колл-во" name="count">
-          <UInput v-model.number="form.count" type="number" min="0" />
+          <UInput v-model.number="form.count"
+                  type="number"
+                  min="0" />
         </UFormField>
 
         <UFormField label="Гео" name="geo">
@@ -151,7 +153,9 @@ onMounted(() => {
         </UFormField>
 
         <div class="md:col-span-2 flex justify-end">
-          <UButton type="submit" size="lg" class="rounded-xl px-6">
+          <UButton type="submit"
+                   size="lg"
+                   class="rounded-xl px-6">
             Сохранить
           </UButton>
         </div>

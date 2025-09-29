@@ -19,13 +19,16 @@ export default defineEventHandler(async (event: H3Event) => {
             }),
             prisma.messanger.aggregate({
                 where: { agentId },
-                _sum: { count: true },
+                _count: { count: true },
+                _sum: { price: true },
+
             }),
         ])
 
         return {
             messanger: rows,
-            totalMessanger: agg._sum.count ?? 0,
+            totalMessanger: agg._count.count ?? 0,
+            totalPriceMessanger: agg._sum.price ?? 0,
         }
     } catch (error) {
         console.error('Error fetching messanger by agentId:', error)

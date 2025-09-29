@@ -9,7 +9,7 @@ export default defineEventHandler(async (event: H3Event) => {
             throw createError({ statusCode: 400, statusMessage: 'No file uploaded' });
         }
 
-        const agentId = form.find(f => f.name === 'saleId')?.data.toString();
+        const agentId = form.find(f => f.name === 'agentId')?.data.toString();
         const file = form.find(f => f.name === 'file');
 
         if (!file || !agentId) {
