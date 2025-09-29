@@ -10,7 +10,7 @@ const {data: sales} = await useFetch('/api/sales')
 const items = ref([])
 const liveData = ref([])
 const geoArr = ref(['KZ', 'KG', 'BY', 'UZ'])
-
+const form = reactive({agentId: null, date: '', count: null, geo: ''})
 
 const columns = [
   {
@@ -44,10 +44,15 @@ const columns = [
   },
   { id: 'geo', header: 'Гео', accessorKey: 'geo' },
 ]
+const selectedStage = ref(null)
 
-
-
-
+async function submit () {
+  const payload = { ...form, date: form.date ? new Date(form.date).toISOString() : null }
+  await $fetch('/api/live', { method: 'POST', body: payload })
+  await refreshLive()
+}
+const stageOptions = computed(() => [...sales.value]
+    .map(s => ({ label: s.stage, value: s.id })))
 
 async function deleteRecord() {
   await $fetch(`/api/live/1}`, { method: 'DELETE' })
@@ -80,7 +85,22 @@ const rows = computed(() => (Array.isArray(live.value) ? live.value : live.value
     .slice()
     .sort((a,b) => new Date(b.date) - new Date(a.date)))
 
+onMounted(() => {
+  if (sales.value?.length > 0) {
+    items.value = sales.value.map((item) => {
+      return {label: item?.stage, value: item?.id}
+    })
+  }
 
+  if( live.value?.length > 0) {
+    liveData.value = live.value.map((l) => {
+      return {label: l?.geo, value: l?.id}
+    })
+  }
+
+  form.agentId = items.value[0]?.value || null
+  form.geo = geoArr.value[0] || null
+})
 
 
 
