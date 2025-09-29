@@ -20,7 +20,7 @@ const form = reactive({
   date: '',
   count: null,
   type: null,
-  isRecovery: null
+  isRecovery: undefined
 })
 
 

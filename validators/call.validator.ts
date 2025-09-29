@@ -8,6 +8,6 @@ export const callValidator = z.object({
         .min(6, 'Минимум 6 цифр')
         .max(12, 'Максимум 12 цифр'),
     duration: z.number(),
-    price: z.number(),
+    price: z.number().optional(),
     status: z.string(),
 })
