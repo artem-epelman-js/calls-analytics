@@ -19,13 +19,16 @@ export default defineEventHandler(async (event: H3Event) => {
             }),
             prisma.live.aggregate({
                 where: { agentId },
-                _sum: { count: true },
+                _count: { count: true },
+                _sum: {price: true}
+
             }),
         ])
 
         return {
             live: rows,
-            totalLeads: agg._sum.count ?? 0,
+            totalLeads: agg._count.count ?? 0,
+            totalPriceLead: agg._sum.price ?? 0,
         }
     } catch (error) {
         console.error('Error fetching live by agentId:', error)

@@ -13,10 +13,9 @@ model Sale {
   isActive  Boolean     @default(true)
   createdAt DateTime    @default(now())
   updatedAt DateTime    @updatedAt
-
   call      Call[]
   Live      Live[]
-  Messanger Messanger[]   // ← ок: у сейла много записей мессенджера
+  Messanger Messanger[]
 }
 
 model Call {
@@ -25,11 +24,10 @@ model Call {
   date      DateTime
   phone     String
   duration  Int
-  price     Int
+  price     Decimal  @default(0.25)
   status    String
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-
   agent     Sale?    @relation(fields: [agentId], references: [id])
 
   @@unique([phone, date])
@@ -40,13 +38,29 @@ model Live {
   agentId   Int?
   date      DateTime
   count     Int
+  price     Int      @default(17)
   geo       geo      @default(KZ)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-
   agent     Sale?    @relation(fields: [agentId], references: [id])
 
   @@unique([agentId, geo, date])
+}
+
+model Messanger {
+  id         Int           @id @default(autoincrement())
+  agentId    Int
+  date       DateTime
+  count      Int
+  price      Int           @default(10)
+  type       MessangerType
+  isRecovery Boolean       @default(false)
+  createdAt  DateTime      @default(now())
+  updatedAt  DateTime      @updatedAt
+  agent      Sale          @relation(fields: [agentId], references: [id])
+
+  @@index([date])
+  @@index([agentId])
 }
 
 enum MessangerType {
@@ -54,27 +68,7 @@ enum MessangerType {
   WHATSAPP
 }
 
-model Messanger {
-  id         Int            @id @default(autoincrement())
-  agentId    Int
-  date       DateTime
-  count      Int
-  type       MessangerType
-  isRecovery Boolean        @default(false)
-  createdAt  DateTime       @default(now())
-  updatedAt  DateTime       @updatedAt
-
-  // ✅ правильная связь «многие-к-одному» к Sale
-  agent      Sale           @relation(fields: [agentId], references: [id])
-
-  // (опционально) частичная уникальность на день/тип
-  // @@unique([agentId, type, date])
-
-  @@index([date])
-  @@index([agentId])
-}
-
-  enum geo {
+enum geo {
   KZ
   KG
   UZ
