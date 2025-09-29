@@ -2,6 +2,7 @@ import {defineStore} from 'pinia';
 import {useNuxtApp, useRoute} from "nuxt/app";
 import {useFetch} from "nuxt/app";
 import {number} from "zod";
+import {ref} from 'vue'
 
 let route = useRoute()
 const agentId = route.params.id as string

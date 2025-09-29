@@ -12,9 +12,11 @@ const agentId = route.params.id as string
 
 const items = ref(null)
 const live = ref([])
+const messanger = ref([])
 const sales = ref([])
 const page = ref(1);
 const totalLeaveByAgentId = ref(0)
+const totalMessangerByAgentId = ref(0)
 const file = ref<File | null>(null)
 const activeToggle = ref(null)
 const isLoading = ref(false)
@@ -36,8 +38,18 @@ async function getLive(id?: number | string) {
   live.value = await $fetch(`/api/live`, { params: { saleId: currentId } })
 }
 
+async function getMessanger(id?: number|string) {
+  const currentId = Number(id??selectedStage.value ?? agentId)
+  messanger.value = await $fetch('/api/messanger', { params: { saleId: currentId } })
+}
+
 async function getTotalLeaveByAgentId() {
   totalLeaveByAgentId.value =  await $fetch(`/api/live/${agentId}`)
+}
+
+async function getTotalMessangerByAgentId() {
+  totalMessangerByAgentId.value =  await $fetch(`/api/messanger/${agentId}`)
+  console.log(totalMessangerByAgentId.value)
 }
 
 
@@ -156,10 +168,12 @@ watch(selectedStage,()=>{
   router.push({ path: `/sales/${selectedStage.value}` })
 })
 onMounted(async () => {
-  await getSales()
   await getData()
   await getLive()
+  await getSales()
+  await getMessanger()
   await getTotalLeaveByAgentId()
+  await getTotalMessangerByAgentId()
 })
 
 </script>
@@ -214,6 +228,7 @@ onMounted(async () => {
         <div class="grid grid-cols-2 gap-2">
 
           <p>Кол-во лайва:</p><p>{{ totalLeaveByAgentId.totalLeads }}</p>
+          <p>Кол-во выданых месс-в:</p><p>{{ totalMessangerByAgentId.totalMessanger }}</p>
           <p>Кол-во звонков:</p><p>{{ items?.callAgregation?._count }}</p>
           <p>Кол-во сек. в звонке:</p><p> {{ items?.callAgregation?._sum?.duration }}</p>
           <p>Расход по телефонии:</p><p> {{ result }}</p>

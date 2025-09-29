@@ -18,7 +18,8 @@ export default defineEventHandler(async (event: H3Event) => {
             }),
             prisma.messanger.aggregate({
                 where: whereClause,
-                _sum: { count: true },   // ← суммируем значения колонки count
+                _sum: { count: true },
+                _count: true,
             }),
         ])
 
