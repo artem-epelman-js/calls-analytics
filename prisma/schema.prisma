@@ -7,7 +7,7 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model Sale {
+model Agent {
   id        Int         @id @default(autoincrement())
   stage     String
   isActive  Boolean     @default(true)
@@ -28,7 +28,7 @@ model Call {
   status    String
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  agent     Sale?    @relation(fields: [agentId], references: [id])
+  agent     Agent?   @relation(fields: [agentId], references: [id])
 
   @@unique([phone, date])
 }
@@ -42,7 +42,7 @@ model Live {
   geo       geo      @default(KZ)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  agent     Sale?    @relation(fields: [agentId], references: [id])
+  agent     Agent?   @relation(fields: [agentId], references: [id])
 
   @@unique([agentId, geo, date])
 }
@@ -57,7 +57,7 @@ model Messanger {
   isRecovery Boolean       @default(false)
   createdAt  DateTime      @default(now())
   updatedAt  DateTime      @updatedAt
-  agent      Sale          @relation(fields: [agentId], references: [id])
+  agent      Agent         @relation(fields: [agentId], references: [id])
 
   @@index([date])
   @@index([agentId])

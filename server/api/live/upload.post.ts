@@ -36,8 +36,8 @@ function isTotalRow(name: string): boolean {
 }
 
 async function resolveAgentIdByName(name: string): Promise<number | null> {
-    // предполагаем, что имя агента хранится в Sale.stage (или поменяй поле при необходимости)
-    const agent = await prisma.sale.findFirst({
+    // предполагаем, что имя агента хранится в Agent.stage (или поменяй поле при необходимости)
+    const agent = await prisma.agent.findFirst({
         where: { stage: { equals: name, mode: 'insensitive' } },
         select: { id: true }
     })

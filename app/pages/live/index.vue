@@ -6,7 +6,7 @@ import {LiveValidator} from "~~/validators/live.validator.js";
 
 
 const { data: live, refresh: refreshLive } = await useFetch('/api/live', { key: 'live' })
-const {data: sales} = await useFetch('/api/sales')
+const {data: agents} = await useFetch('/api/agents')
 const items = ref([])
 const liveData = ref([])
 const geoArr = ref(['KZ', 'KG', 'BY', 'UZ'])
@@ -51,7 +51,7 @@ async function submit () {
   await $fetch('/api/live', { method: 'POST', body: payload })
   await refreshLive()
 }
-const stageOptions = computed(() => [...sales.value]
+const stageOptions = computed(() => [...agents.value]
     .map(s => ({ label: s.stage, value: s.id })))
 
 async function deleteRecord() {
@@ -86,8 +86,8 @@ const rows = computed(() => (Array.isArray(live.value) ? live.value : live.value
     .sort((a,b) => new Date(b.date) - new Date(a.date)))
 
 onMounted(() => {
-  if (sales.value?.length > 0) {
-    items.value = sales.value.map((item) => {
+  if (agents.value?.length > 0) {
+    items.value = agents.value.map((item) => {
       return {label: item?.stage, value: item?.id}
     })
   }
@@ -121,7 +121,7 @@ onMounted(() => {
           @submit="submit"
           class="grid grid-cols-1 md:grid-cols-2 gap-4"
       >
-        <UFormField label="Выберите сейла" name="agentId">
+        <UFormField label="Выберите агента" name="agentId">
           <USelect
               v-model="form.agentId"
               :items="items"

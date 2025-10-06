@@ -1,11 +1,15 @@
 export default defineNuxtConfig({
-  modules: ['@nuxt/ui', "@prisma/nuxt"],
+  modules: ['@nuxt/ui', "@prisma/nuxt", '@pinia/nuxt'],
   css: ['~/assets/css/main.css'],
   ssr: false,
+    pinia: {
+        // опционально
+        // storesDirs: ['~/stores'] // если нужна кастомная папка
+    },
     routeRules: {
         // ⚠️ Указывать только страницы, где допустимо 12 ч без обновления
-        '/sales/**': { headers: { 'Cache-Control': 'public, max-age=43200' } },
-        '/sales': { swr: 3200 }, // 12 часов
+        '/agents/**': { headers: { 'Cache-Control': 'public, max-age=43200' } },
+        '/agents': { swr: 3200 }, // 12 часов
         '/about':    { headers: { 'Cache-Control': 'public, max-age=43200' } },
 
         // ассеты Nuxt

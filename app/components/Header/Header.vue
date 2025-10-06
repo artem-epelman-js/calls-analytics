@@ -9,24 +9,24 @@
     <nav class="flex gap-8 text-lg">
       <ULink
 
-          to="/sales"
+          to="/agents"
           active-class="text-primary font-semibold border-b-2 border-primary pb-1"
       >
-        Sales
+        Агенты
       </ULink>
 
       <ULink
           to="/live"
           active-class="text-primary font-semibold border-b-2 border-primary pb-1"
       >
-        Live
+        Лайв
       </ULink>
 
       <ULink
           to="/messanger"
           active-class="text-primary font-semibold border-b-2 border-primary pb-1"
       >
-        Messanger
+        Мессенджеры
       </ULink>
     </nav>
   </UCard>
