@@ -12,8 +12,8 @@ const agentId = Number(route.params.id as string)
 const calls = ref<any|null>(null)
 const live = ref<any[]>([])
 const messanger = ref<any[]>([])
-const sales = ref<any[]>([])
-const sale = ref<any|null>(null)
+const agents = ref<any[]>([])
+const agent = ref<any|null>(null)
 
 const page = ref(1)
 const file = ref<File | null>(null)
@@ -74,13 +74,13 @@ async function getTotalMessangerByAgentId() {
   }
 }
 
-async function getSales() {
-  sales.value = await $fetch('/api/sales')
+async function getAgents() {
+  agents.value = await $fetch('/api/agents')
 }
 
 async function getAgentByAgentId() {
-  sale.value = await $fetch(`/api/sales/${agentId}`)
-  selectedStage.value = sale.value?.id ?? null
+  agent.value = await $fetch(`/api/agents/${agentId}`)
+  selectedStage.value = agent.value?.id ?? null
 }
 
 async function getCalls(id?: number | string) {
@@ -131,7 +131,7 @@ async function upload() {
 }
 
 const stageOptions = computed(() =>
-    (sales.value || []).map((s:any) => ({ label: s.stage, value: s.id })))
+    (agents.value || []).map((s:any) => ({ label: s.stage, value: s.id })))
 
 const expensesByLive = computed(() =>
     formatCurrency(totalLeaveByAgentId.value?.totalPriceLead)
@@ -166,7 +166,7 @@ watch(
 
 watch(selectedStage, (val) => {
   if (!val) return
-  router.push({ path: `/sales/${val}` })
+  router.push({ path: `/agents/${val}` })
   getCalls(val)
   getLive(val)
   getMessanger(val)
@@ -176,7 +176,7 @@ onMounted(async () => {
   await Promise.all([
     getCalls(),
     getLive(),
-    getSales(),
+    getAgents(),
     getAgentByAgentId(),
     getMessanger(),
     getTotalLeaveByAgentId(),
@@ -207,22 +207,22 @@ onMounted(async () => {
       <div class="grid grid-cols-3 gap-6 pt-4">
         <div>
           <p class="text-sm font-medium text-gray-500 dark:text-gray-400">Номер</p>
-          <p class="mt-2 text-base font-medium">{{ sale?.id }}</p>
+          <p class="mt-2 text-base font-medium">{{ agent?.id }}</p>
         </div>
 
         <div>
           <p class="text-sm font-medium text-gray-500 dark:text-gray-400">Статус</p>
           <div class="flex items-center gap-2 mt-2">
-            <UBadge :color="sale?.isActive ? 'primary' : 'error'" variant="subtle">
-              {{ sale?.isActive ? 'Активен' : 'Неактивен' }}
+            <UBadge :color="agent?.isActive ? 'primary' : 'error'" variant="subtle">
+              {{ agent?.isActive ? 'Активен' : 'Неактивен' }}
             </UBadge>
           </div>
         </div>
 
-        <div v-if="sale?.createdAt">
+        <div v-if="agent?.createdAt">
           <p class="text-sm font-medium text-gray-500 dark:text-gray-400">Добавлен</p>
           <p class="mt-2 text-base font-medium">
-            {{ format(new Date(sale?.createdAt || ''), 'dd.MM.yy') }}
+            {{ format(new Date(agent?.createdAt || ''), 'dd.MM.yy') }}
           </p>
         </div>
       </div>

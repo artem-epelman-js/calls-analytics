@@ -5,7 +5,7 @@ export default defineEventHandler(async (event: H3Event) => {
     const idParam = getRouterParam(event, 'id')
     const id = Number(idParam)
     if (!id || Number.isNaN(id)) {
-        throw createError({ statusCode: 400, statusMessage: 'Invalid sale id' })
+        throw createError({ statusCode: 400, statusMessage: 'Invalid agent id' })
     }
 
     const body = await readBody<{ isActive?: boolean }>(event)
@@ -13,7 +13,7 @@ export default defineEventHandler(async (event: H3Event) => {
         throw createError({ statusCode: 400, statusMessage: 'isActive must be boolean' })
     }
 
-    return await prisma.sale.update({
+    return await prisma.agent.update({
         where: {id},
         data: {isActive: body.isActive},
         select: {id: true, isActive: true},

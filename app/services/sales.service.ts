@@ -1,17 +1,17 @@
 let route = useRoute();
 const agentId = route.params.id as string
 
-const salesService = {
+const agentsService = {
 
-    getAllSales: async () => {
-        await useFetch('/api/sales')
+    getAllAgents: async () => {
+        await useFetch('/api/agents')
     },
-    getSaleById: async () => {
-        await useFetch(`/api/sales/${agentId}`)
+    getAgentById: async () => {
+        await useFetch(`/api/agents/${agentId}`)
     },
-    createSale: async (payload:{stage:string; isActive: boolean|undefined}) => {
-        await $fetch('/api/sales', { method: 'POST', body: payload })
+    createAgent: async (payload:{stage:string; isActive: boolean|undefined}) => {
+        await $fetch('/api/agents', { method: 'POST', body: payload })
     },
 }
 
-export default salesService
+export default agentsService

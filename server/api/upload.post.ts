@@ -17,15 +17,15 @@ export default defineEventHandler(async (event: H3Event) => {
             throw createError({ statusCode: 400, statusMessage: 'Missing file or agentId' });
         }
 
-        const existingAgent = await prisma.sale.findUnique({
+        const existingAgent = await prisma.agent.findUnique({
             where: { id: Number(agentId) },
         });
 
         if (!existingAgent) {
-            console.error(`Sale with ID ${agentId} not found.`);
+            console.error(`Agent with ID ${agentId} not found.`);
             throw createError({
                 statusCode: 404,
-                statusMessage: `Sale with ID ${agentId} not found. Cannot create records.`
+                statusMessage: `Agent with ID ${agentId} not found. Cannot create records.`
             });
         }
 

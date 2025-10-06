@@ -5,13 +5,13 @@ export default defineEventHandler(async (event) => {
     const body = await readBody(event)
 
     try {
-        const sales = await prisma.sale.create({
+        const agents = await prisma.agent.create({
             data: {
                 stage: body.stage,
                 isActive: body.isActive
             }
         })
-        return sales
+        return agents
     } catch (err) {
         console.error(err)
         throw createError({ statusCode: 400, statusMessage: err.message })

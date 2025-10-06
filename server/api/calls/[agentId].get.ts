@@ -44,7 +44,7 @@ export default defineEventHandler(async (event: H3Event) => {
         dateFilter.lte = end
     }
 
-    // ⚠️ Если FK в Call называется иначе (например saleId) — замени здесь
+    // ⚠️ Если FK в Call называется иначе (например agentId) — замени здесь
     const where: any = { agentId }
     if (status) where.status = status
     if (dateFilter.gte || dateFilter.lte) where.date = dateFilter  // или where.createdAt = dateFilter

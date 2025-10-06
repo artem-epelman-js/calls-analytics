@@ -1,10 +1,10 @@
 <script setup lang="ts">
-import { useFetch } from '#app'
-import { computed, ref } from 'vue'
-import {UButton} from "#components";
-import {saleValidator} from "~~/validators/sale.validator";
+import { computed, ref, reactive, onMounted, nextTick } from 'vue'
+import { storeToRefs } from 'pinia'
+import { useAgentStore } from '~~/stores/agent.store'
+import { agentValidator } from '~~/validators/agent.validator'
 
-type Sale = {
+type Agent = {
   id: number
   stage: string
   isActive: boolean
@@ -12,91 +12,70 @@ type Sale = {
   updatedAt: string
 }
 
-const { data, error, pending, refresh } = await useFetch<Sale[]>('/api/sales', { key: 'sales' })
-const showControls = ref(false)
-const selectedStage = ref<number | null>(null)   // теперь тут id
+// один инстанс стора
+const agentStore = useAgentStore()
+const { data, loading, error } = storeToRefs(agentStore)
+const { create, getAll } = agentStore
 
+const showControls = ref(false)
+const selectedStage = ref<number | null>(null)
 
 const form = reactive({
   stage: '',
-  isActive: false     // или null, если нужно «не выбрано»
+  isActive: false
 })
-const togglingId = ref<number | null>(null)
 
+const togglingId = ref<number | null>(null)
 const showCreate = ref(false)
 const stageInput = ref<HTMLInputElement | null>(null)
 
 function toggleCreate() {
   showCreate.value = !showCreate.value
-  if (showCreate.value) {
-    nextTick(() => stageInput.value?.focus())
-  }
 }
 
-
-async function submit () {
-  const payload = { stage: form.stage, isActive: form.isActive }
-  await $fetch('/api/sales', { method: 'POST', body: payload })
-  await refresh() // один раз — подтянули свежие данные
-}
-
-
-async function toggleSale(stageId: number) {
+async function toggleAgent(stageId: number) {
   try {
     togglingId.value = stageId
-    const sale = data.value.find(s => s.id === stageId)
-    if (!sale) return
+    const agent = data.value.find(s => s.id === stageId)
+    if (!agent) return
 
-    const newStatus = !sale.isActive
-
-    // ⚡ PATCH-запрос с новым значением
-    await $fetch(`/api/sales/${stageId}`, {
+    const newStatus = !agent.isActive
+    await $fetch(`/api/agents/${stageId}`, {
       method: 'PATCH',
       body: { isActive: newStatus }
     })
-
-    // оптимистично меняем локально
-    sale.isActive = newStatus
+    agent.isActive = newStatus // оптимистично
   } finally {
     togglingId.value = null
   }
 }
 
 const stageOptions = computed(() =>
-    (data.value || []).map(s => ({ label: s.stage, value: s.id })))
+    (data.value ?? []).map(s => ({ label: s.stage, value: s.id }))
+)
 
-watch(selectedStage.value, () => {
-  console.log(selectedStage)
-})
-
-
-
-
-
-
+onMounted(() => { getAll() })
 </script>
+
 
 <template>
   <UContainer class="py-8 max-w-5xl mx-auto space-y-6">
     <div class="flex justify-between gap-4">
-      <h1 class="text-2xl font-semibold">Sales</h1>
       <div class="flex flex-col gap-3 w-full max-w-xl">
-
         <div class="flex gap-4">
           <UButton
               color="primary"
               icon="i-heroicons-arrow-path"
-              :loading="pending"
-              @click="refresh"
+              :loading="loading"
+              @click="getAll"
           >
             Обновить
           </UButton>
-
           <UButton
               :icon="showCreate ? 'i-lucide-minus' : 'i-lucide-plus'"
               @click="toggleCreate"
           >
-            {{ showCreate ? 'Скрыть форму' : 'Добавить сейла' }}
+            {{ showCreate ? 'Скрыть форму' : 'Добавить агента' }}
           </UButton>
         </div>
 
@@ -111,58 +90,55 @@ watch(selectedStage.value, () => {
         >
           <UForm
               v-if="showCreate"
-              :shema="saleValidator"
+              :schema="agentValidator"
               :state="form"
-              @submit.prevent="submit"
+              @submit.prevent=create(form)
               class="grid grid-cols-1 md:grid-cols-2 gap-4 bg-gray-50 dark:bg-gray-800/40 p-4 rounded-xl"
           >
-            <UFormField label="Стейдж" name="stage">
-              <UInput v-model="form.stage" type="text" ref="stageInput" />
-            </UFormField>
+          <UFormField label="Стейдж" name="stage">
+            <UInput v-model="form.stage" type="text" ref="stageInput" />
+          </UFormField>
 
-            <UFormField label="Активность" name="isActive">
-              <USelect
-                  v-model="form.isActive"
-                  :items="[
-              { label: 'True', value: true },
-              { label: 'False', value: false }
-            ]"
-                  placeholder="Выберите значение"
-              />
-            </UFormField>
+          <UFormField label="Активность" name="isActive">
+            <USelect
+                v-model="form.isActive"
+                :items="[{ label: 'True', value: true }, { label: 'False', value: false }]"
+                placeholder="Выберите значение"
+            />
+          </UFormField>
 
-            <div class="md:col-span-2 flex justify-end gap-2">
-              <UButton variant="subtle" @click="showCreate = false">Отмена</UButton>
-              <UButton type="submit" size="lg" class="rounded-xl px-6">Сохранить</UButton>
-            </div>
+          <div class="md:col-span-2 flex justify-end gap-2">
+            <UButton variant="subtle transition-23" @click="showCreate = false">Отмена</UButton>
+            <UButton type="submit" size="lg" @click="showCreate = false" class="rounded-xl px-6">Сохранить</UButton>
+          </div>
           </UForm>
-        </Transition>
 
+        </Transition>
       </div>
     </div>
 
 
-    <div v-if="pending" class="text-gray-500 text-center">Загрузка...</div>
-    <UAlert v-else-if="error" color="red" :description="error.message" />
+    <div v-if="loading" class="text-gray-500 text-center">Загрузка...</div>
+    <UAlert v-else-if="error" color="error" :description="error?.message" />
 
     <!-- Сетка карточек -->
     <div v-else class="grid gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5">
       <ULink
-          v-for="sale in data"
+          v-for="agent in data"
 
-          :key="sale.id"
-          :to="{ name: 'sales-id', params: { id: sale.id } }"
+          :key="agent.id"
+          :to="{ name: 'agents-id', params: { id: agent.id } }"
           class="flex items-center justify-between px-3 py-2 rounded-md
                bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700
                transition cursor-pointer"
       >
-        <span class="font-medium">{{ sale.stage }}</span>
+        <span class="font-medium">{{ agent.stage }}</span>
         <UBadge
-            :color="sale.isActive ? 'primary' : 'neutral'"
+            :color="agent.isActive ? 'primary' : 'neutral'"
             variant="subtle"
             class="transition-colors duration-400"
         >
-          {{ sale.isActive ? 'On' : 'Off' }}
+          {{ agent.isActive ? 'On' : 'Off' }}
         </UBadge>
       </ULink>
 
@@ -192,7 +168,7 @@ watch(selectedStage.value, () => {
           color="neutral"
           :disabled="!selectedStage"
           :loading="togglingId === selectedStage"
-          @click="toggleSale(selectedStage!)"
+          @click="toggleAgent(selectedStage!)"
       >
         {{
           data?.find(s => s.id === selectedStage)?.isActive

@@ -6,7 +6,7 @@ import {messangerValidator} from "~~/validators/messanger.validator";
 
 
 const { data: messanger, refresh: refreshMessanger } = await useFetch('/api/messanger', { key: 'messanger' })
-const { data: sales } = await useFetch('/api/sales')
+const { data: agents } = await useFetch('/api/agents')
 
 
 const items = ref<{ label: string; value: number }[]>([])
@@ -99,8 +99,8 @@ const rows = computed(() =>
 
 
 onMounted(() => {
-  if (Array.isArray(sales.value) && sales.value.length > 0) {
-    items.value = sales.value.map((s: any) => ({ label: s?.stage, value: s?.id }))
+  if (Array.isArray(agents.value) && agents.value.length > 0) {
+    items.value = agents.value.map((s: any) => ({ label: s?.stage, value: s?.id }))
   }
 
   if (Array.isArray(messanger.value) && messanger.value.length > 0) {
@@ -126,7 +126,7 @@ onMounted(() => {
           :schema="messangerValidator"
           class="grid grid-cols-1 md:grid-cols-2 gap-4"
       >
-        <UFormField label="Выберите сейла" name="agentId">
+        <UFormField label="Выберите агента" name="agentId">
           <USelect
               v-model="form.agentId"
               :items="items"
