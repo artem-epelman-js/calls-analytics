@@ -16,4 +16,8 @@ export default defineNuxtConfig({
         '/_nuxt/**': { headers: { 'Cache-Control': 'public, max-age=31536000, immutable' } },
         '/images/**':{ headers: { 'Cache-Control': 'public, max-age=604800' } }
     },
+    app: {
+        pageTransition: { name: 'page', mode: 'out-in' },
+        layoutTransition: { name: 'layout', mode: 'out-in' },
+    },
 })
