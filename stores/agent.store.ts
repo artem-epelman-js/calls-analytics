@@ -25,20 +25,6 @@ export type AgentsResponse = {
     }
 }
 
-export type AgentResponse = {
-    data: Agent[]
-    meta: {
-        page: number
-        take: number
-        total: number
-        totalPages: number
-        hasPrev: boolean
-        hasNext: boolean
-        orderBy: 'id' | 'stage' | 'isActive' | 'createdAt' | 'updatedAt'
-        sortOrder: 'asc' | 'desc'
-    }
-}
-
 export type CreateAgentPayload = {
     stage: string
     isActive: boolean
@@ -81,8 +67,6 @@ export const useAgentStore = defineStore('agents', () => {
         }
     }
 
-
-
     async function create(payload: CreateAgentPayload) {
         loading.value = true
         error.value = null
@@ -98,24 +82,11 @@ export const useAgentStore = defineStore('agents', () => {
     }
 
     // опционально: переключение статуса
-    async function toggleActive(id: number) {
-        loading.value = true
-        error.value = null
-        try {
-            await $fetch(`/api/agents/${id}/toggle`, {method: 'PATCH'})
-            await getAll()
-        } catch (e: any) {
-            console.error(e)
-            error.value = e?.message ?? 'Failed to toggle agent'
-        } finally {
-            loading.value = false
-        }
-    }
 
     return {
         // state
         data, count, meta, loading, error, params,
         // actions
-        getAll, create, toggleActive, resetParams,
+        getAll, create, resetParams,
     }
 })

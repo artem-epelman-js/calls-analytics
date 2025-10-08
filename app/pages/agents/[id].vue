@@ -1,5 +1,7 @@
 <script setup lang="ts">
 
+import {formatCurrency} from "~/helpers/formt_helper";
+
 definePageMeta({
   pageTransition: {
     name: 'slide-right',
@@ -7,14 +9,16 @@ definePageMeta({
   },
   middleware(to, from) {
     if (to.meta.pageTransition && typeof to.meta.pageTransition !== 'boolean') {
-      to.meta.pageTransition.name = +to.params.id! > +from.params.id! ? 'slide-left' : 'slide-right'
+      const a = Number(to.params.id)
+      const b = Number(from.params?.id)
+      to.meta.pageTransition.name = Number.isFinite(a) && Number.isFinite(b) && a > b ? 'slide-left' : 'slide-right'
     }
-  },
+  }
 })
 
 import {ref, reactive, computed, onMounted, watch} from 'vue'
 import {useRoute, useRouter} from 'vue-router'
-import {format} from 'date-fns'
+import {format, formatDuration} from 'date-fns'
 import {useFetch} from '#app'
 import {callValidator} from '~~/validators/call.validator'
 
@@ -27,7 +31,6 @@ const live = ref<any[]>([])
 const messanger = ref<any[]>([])
 const agents = ref<any[]>([])
 const agent = ref<any | null>(null)
-
 
 const page = ref(1)
 const file = ref<File | null>(null)
@@ -70,27 +73,9 @@ const state = reactive({
   endDate: undefined as string | undefined
 })
 
-function formatCurrency(amount: number | null | undefined, currency = 'USD') {
-  const val = Number(amount ?? 0)
-  return new Intl.NumberFormat('ru-RU', {
-    style: 'currency',
-    currency,
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2
-  }).format(val)
-}
+async function getLive() {
 
-function formatDuration(totalSeconds?: number) {
-  const s = Math.max(0, Number(totalSeconds || 0))
-  const hh = String(Math.floor(s / 3600)).padStart(2, '0')
-  const mm = String(Math.floor((s % 3600) / 60)).padStart(2, '0')
-  const ss = String(Math.floor(s % 60)).padStart(2, '0')
-  return `${hh}:${mm}:${ss}`
-}
-
-async function getLive(id?: number | string) {
-  const currentId = Number(id ?? selectedStage.value ?? agentId)
-  live.value = await $fetch(`/api/live/${currentId}`, {
+  live.value = await $fetch(`/api/live/${agentId}`, {
     params: {
       page: page.value,
       take: state.take,
@@ -103,9 +88,9 @@ async function getLive(id?: number | string) {
   })
 }
 
-async function getMessanger(id?: number | string) {
-  const currentId = Number(id ?? selectedStage.value ?? agentId)
-  messanger.value = await $fetch(`/api/messanger/${currentId}`, {
+async function getMessanger() {
+
+  messanger.value = await $fetch(`/api/messanger/${agentId}`, {
     params: {
       page: page.value,
       take: state.take,
@@ -115,8 +100,7 @@ async function getMessanger(id?: number | string) {
       startDate: state.startDate,
       endDate: state.endDate
     }
-  })
-}
+  })}
 
 async function getTotalLeaveByAgentId() {
   const res = await $fetch(`/api/live/${agentId}`)
@@ -135,14 +119,13 @@ async function getAgents() {
   agents.value = await $fetch('/api/agents')
 }
 
-async function getAgentByAgentId() {
+async function getAgentById() {
   agent.value = await $fetch(`/api/agents/${agentId}`)
-  selectedStage.value = agent.value?.id ?? null
+  selectedStage.value = agent.value?.id ? Number(agent.value.id) : null
 }
 
-async function getCalls(id?: number | string) {
-  const currentId = Number(id ?? selectedStage.value ?? agentId)
-  calls.value = await $fetch(`/api/calls/${currentId}`, {
+async function getCalls() {
+  calls.value = await $fetch(`/api/calls/${agentId}`, {
     params: {
       page: page.value,
       take: state.take,
@@ -155,7 +138,7 @@ async function getCalls(id?: number | string) {
   })
 }
 
-async function sendDate() {
+async function saveCalls() {
   await useFetch(`/api/calls/${agentId}`, {
     params: {startDate: state.startDate, endDate: state.endDate}
   })
@@ -187,7 +170,13 @@ async function upload() {
   }
 }
 
-const agentsList = computed(() => (agents.value || []).map((s: any) => ({label: s.stage, value: s.id})))
+const agentsOptions = computed(() => {
+  console.log(agents.value)
+  return (agents.value?.data ?? []).map((a: any) => ({
+    label: a.stage,  // что показываем
+    value: Number(a.id) // что кладем в v-model
+  }))
+})
 
 const expensesByLive = computed(() => formatCurrency(totalLeaveByAgentId.value?.totalPriceLead))
 
@@ -211,17 +200,17 @@ const totalExpenses = computed(() => {
 
 const totalDuration = computed(() => formatDuration(calls.value?.callAgregation?._sum?.duration))
 
-watch(
-    [page, () => state.take, () => state.status, () => state.startDate, () => state.endDate], () => {
-      getCalls()
-    })
+watch([page, () => state.take, () => state.status, () => state.startDate, () => state.endDate], () => {
+  getCalls()
+})
 
 watch(selectedStage, (val) => {
-  if (!val) return
-  router.push({path: `/agents/${val}`})
-  getCalls(val)
-  getLive(val)
-  getMessanger(val)
+  if (val == null) return
+  const id = Number(val)
+  router.push({path: `/agents/${id}`})
+  getCalls(id)
+  getLive(id)
+  getMessanger(id)
 })
 
 onMounted(async () => {
@@ -229,7 +218,7 @@ onMounted(async () => {
     getCalls(),
     getLive(),
     getAgents(),
-    getAgentByAgentId(),
+    getAgentById(),
     getMessanger(),
     getTotalLeaveByAgentId(),
     getTotalMessangerByAgentId()
@@ -245,9 +234,10 @@ onMounted(async () => {
           <USelect
               class="w-50"
               v-model="selectedStage"
-              :items="agentsList"
+              :items="agentsOptions"
               size="xl"
               placeholder="Выбери агента"
+              :loading="!agents?.data?.length"
           />
         </div>
       </div>
@@ -277,12 +267,11 @@ onMounted(async () => {
     </UCard>
 
 
-
     <UCard>
       <div class="grid grid-cols-1 justify-between gap-6">
 
         <UForm
-            @submit.prevent="sendDate"
+            @submit.prevent="saveCalls"
             :schema="callValidator"
             :state="state"
             class="flex justify-start flex-row flex-1"
