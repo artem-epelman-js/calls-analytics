@@ -10,6 +10,7 @@ export default defineEventHandler(async (event: H3Event) => {
         throw createError({ statusCode: 400, statusMessage: 'agentId must be a number' })
     }
 
+
     const q = getQuery(event)
 
     // ---- пагинация ----

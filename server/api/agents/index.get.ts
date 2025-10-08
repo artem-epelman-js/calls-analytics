@@ -13,7 +13,7 @@ export default defineEventHandler(async () => {
         return {
             data: agents,
             count,
-            meta:{}
+            meta:<any>{}
         };
     } catch (error: any) {
 

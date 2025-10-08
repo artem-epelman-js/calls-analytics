@@ -25,6 +25,20 @@ export type AgentsResponse = {
     }
 }
 
+export type AgentResponse = {
+    data: Agent[]
+    meta: {
+        page: number
+        take: number
+        total: number
+        totalPages: number
+        hasPrev: boolean
+        hasNext: boolean
+        orderBy: 'id' | 'stage' | 'isActive' | 'createdAt' | 'updatedAt'
+        sortOrder: 'asc' | 'desc'
+    }
+}
+
 export type CreateAgentPayload = {
     stage: string
     isActive: boolean
@@ -67,12 +81,13 @@ export const useAgentStore = defineStore('agents', () => {
         }
     }
 
+
+
     async function create(payload: CreateAgentPayload) {
         loading.value = true
         error.value = null
         try {
             await $fetch('/api/agents', {method: 'POST', body: payload})
-            // обновляем текущую страницу с текущей сортировкой
             await getAll()
         } catch (e: any) {
             console.error(e)
@@ -96,15 +111,6 @@ export const useAgentStore = defineStore('agents', () => {
             loading.value = false
         }
     }
-
-    // удобные хелперы для UI
-    // async function setPage(page: number) {
-    //     await getAll()
-    // }
-    //
-    // async function setSort(orderBy: AgentsResponse['meta']['orderBy'], sortOrder: AgentsResponse['meta']['sortOrder']) {
-    //     await getAll()
-    // }
 
     return {
         // state
