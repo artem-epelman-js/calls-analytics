@@ -106,8 +106,13 @@ onMounted(() => {
 
 </script>
 
+
 <template>
   <UContainer>
+    <div class="mb-6 rounded-2xl p-6 shadow-sm bg-gradient-to-r from-slate-900 to-slate-800 text-white">
+      <h2 class="text-2xl font-semibold">Форма заполнения выданного лайва за день</h2>
+      <p class="text-white/70 mt-1">Заполни поля ниже и нажми «Сохранить»</p>
+    </div>
 
     <UCard class="rounded-2xl shadow-sm">
       <UForm

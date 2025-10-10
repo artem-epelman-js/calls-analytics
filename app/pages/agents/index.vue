@@ -3,7 +3,7 @@ import {computed, ref, reactive, onMounted, nextTick} from 'vue'
 import {storeToRefs} from 'pinia'
 import {useAgentStore} from '~~/stores/agent.store'
 import {agentValidator} from '~~/validators/agent.validator'
-import {onBeforeLeave} from "~/helpers/animation_helper";
+import {onBeforeLeave} from "~/app_helpers/animation_helper";
 
 type Agent = {
   id: number

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 
-import {formatCurrency} from "~/helpers/formt_helper";
+import {formatCurrency} from "~/app_helpers/formt_helper";
 
 definePageMeta({
   pageTransition: {
