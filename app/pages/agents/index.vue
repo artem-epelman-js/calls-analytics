@@ -1,62 +1,55 @@
 <script setup lang="ts">
-import {computed, ref, reactive, onMounted, nextTick} from 'vue'
+import {computed, ref, reactive, onMounted} from 'vue'
 import {storeToRefs} from 'pinia'
+import {watch} from "vue";
 import {useAgentStore} from '~~/stores/agent.store'
 import {agentValidator} from '~~/validators/agent.validator'
 import {onBeforeLeave} from "~/app_helpers/animation_helper";
 
-type Agent = {
-  id: number
-  stage: string
-  isActive: boolean
-  createdAt: string
-  updatedAt: string
-}
-
-// один инстанс стора
+// stores
 const agentStore = useAgentStore()
-const {data, count, loading, error} = storeToRefs(agentStore)
+const {data, loading, params} = storeToRefs(agentStore)
 const {create, getAll} = agentStore
 
+// reactivity variables
 const showControls = ref(false)
-const selectedStage = ref<number | null>(null)
-
+const showFilters = ref(false)
+const selectedStage = ref<number | undefined>(undefined)
+const agentId = ref<number | null>(null)
+const showCreate = ref<boolean>(false)
 const form = reactive({
   stage: '',
   isActive: true
 })
 
-const togglingId = ref<number | null>(null)
-const showCreate = ref<boolean>(false)
-const stageInput = ref<HTMLInputElement | null>(null)
+// base const
+const filterActivityTags = [
+  {label: 'Все агенты', value: undefined},
+  {label: 'Активные', value: true},
+  {label: 'Неветивные', value: false}
+]
 
-
-
-async function toggleAgent(stageId: number) {
+// async functions
+async function toggleActivity(selectedId: number) {
   try {
-    togglingId.value = stageId
-    const agent = data.value.find(s => s.id === stageId)
+    agentId.value = selectedId
+    const agent = data.value.find(s => s.id === selectedId)
     if (!agent) return
 
-    const newStatus = !agent.isActive
-    await $fetch(`/api/agents/${stageId}`, {
+    const newStatus = !agent.isActive // todo убрать блядский запрос
+    await $fetch(`/api/agents/${selectedId}`, {
       method: 'PATCH',
       body: {isActive: newStatus}
     })
     agent.isActive = newStatus // оптимистично
   } finally {
-    togglingId.value = null
+    agentId.value = null
   }
-}
-
-function resetForm() {
-  form.isActive = true
-  form.stage = ''
 }
 
 async function handleSubmit() {
   try {
-    await create({ ...form })
+    await create({...form}) // todo выбросить тост
     resetForm()
     showCreate.value = false
   } catch (e) {
@@ -64,26 +57,26 @@ async function handleSubmit() {
   }
 }
 
+// base functions
+function resetForm() {
+  form.isActive = true
+  form.stage = ''
+}
 
-const agentsList = computed(() =>
-    (data.value ?? []).map(s => ({
-      label: s.stage,
-      value: s.id,
-      class: s.isActive ? 'text-green-700' : 'text-red-700',
-    }))
-)
-
-const activeAgents = computed(() =>
-    (data.value ?? []).filter(a => a.isActive)
-)
-
-const inActive = computed(() =>
-    (data.value ?? []).filter(a => !a.isActive)
-)
+// computeds
+const agentsList = computed(() => (data.value.length ? data.value : data.value).map(s => ({
+  label: s.stage,
+  value: s.id,
+  class: s.isActive ? 'text-green-700' : 'text-red-700',
+})))
 
 
+// watchers
+watch(params, () => {
+  getAll()
+}, {deep: true})
 
-
+// lifeCycles
 onMounted(() => {
   getAll()
 })
@@ -91,9 +84,9 @@ onMounted(() => {
 
 
 <template>
-  <UContainer class="py-8 max-w-5xl mx-auto space-y-6">
+  <UContainer class="py-8 space-y-8">
     <div class="flex flex-col gap-4">
-      <div class="flex gap-4 items-center">
+      <div class="flex gap-x-4 items-center">
         <UButton
             color="primary"
             icon="i-heroicons-arrow-path"
@@ -108,31 +101,24 @@ onMounted(() => {
         >
           {{ showCreate ? 'Скрыть форму' : 'Добавить агента' }}
         </UButton>
-        <div class='ml-auto'>
-          <h3>Активные агенты: <span class="text-xl">{{ activeAgents.length }}</span></h3>
-          <h3>Неактивные агенты: <span class="text-xl">{{ inActive.length }}</span></h3>
-          <USeparator class="mt-5"/>
-        </div>
       </div>
-      <!-- Форма появляется НИЖЕ кнопки -->
       <UForm
           v-if="showCreate"
           :schema="agentValidator"
           :state="form"
           @submit.prevent=handleSubmit
-          class="flex justify-start align-middle gap-4"
+          class="flex justify-start"
       >
         <UFormField label="Стейдж" name="stage">
-          <UInput v-model="form.stage" type="text" ref="stageInput"/>
+          <UInput v-model="form.stage" type="text"/>
         </UFormField>
-
-
-
         <div class="flex justify-end items-end">
-          <UButton color="error"
-                   variant="ghost"
-                   @click="showCreate = false; resetForm()"
-                   class="rounded-xl">
+          <UButton
+              color="error"
+              variant="ghost"
+              @click="showCreate = false; resetForm()"
+              class="rounded-xl"
+          >
             Отмена
           </UButton>
           <UButton
@@ -146,67 +132,52 @@ onMounted(() => {
         </div>
       </UForm>
     </div>
-
-    <div v-if="loading" class="text-gray-500 text-center">Загрузка...</div>
-    <UAlert v-else-if="error"
-            color="error"
-            :description="error?.message"
-    />
-
-    <!-- Сетка карточек -->
+    <div v-if="loading">Загрузка...</div>
     <TransitionGroup
         name="cards"
         tag="div"
-        class="grid gap-3 grid-cols-5 relative"
+        class="grid gap-3 grid-cols-6"
         appear
         @before-leave="onBeforeLeave"
     >
       <ULink
-          v-for="agent in activeAgents"
-      :key="agent.id"
-      :to="{ name: 'agents-id', params: { id: agent.id } }"
-      class="flex items-center justify-between px-3 py-2 rounded-md
-      bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700
-      transition cursor-pointer"
+          v-for="agent in data"
+          :key="agent.id"
+          :to="{ name: 'agents-id', params: { id: agent.id } }"
+          class="flex items-center justify-between px-3 py-2 rounded-md
+           bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700
+           transition cursor-pointer"
       >
-      <span class="font-medium">{{ agent.stage }}</span>
-      <UBadge
-          :color="agent.isActive ? 'primary' : 'neutral'"
-          variant="subtle"
-          class="transition-colors duration-800"
-      >
-        {{ agent.isActive ? 'Активен' : 'Неактивен' }}
-      </UBadge>
+        <span>{{ agent.stage }}</span>
+        <UBadge
+            :color="agent.isActive ? 'primary' : 'neutral'"
+            variant="subtle"
+            class="transition-colors duration-800"
+        >
+          {{ agent.isActive ? 'Активен' : 'Неактивен' }}
+        </UBadge>
       </ULink>
     </TransitionGroup>
-
-
-    <!-- Селект + кнопка -->
     <UCheckbox
         v-model="showControls"
-        :label="showControls ? 'Скрыть форму активации агентов' : 'Показать форму активации агентов'"
-        class="mb-2"
+        :label="showControls ?
+         'Скрыть форму активации агентов' :
+          'Показать форму активации агентов'"
     />
-
-    <!-- Селект + кнопка -->
-    <div
-        v-if="showControls"
-        class="flex gap-4 items-center"
-    >
+    <div v-if="showControls" class="space-x-2">
       <USelect
           v-model="selectedStage"
           :items="agentsList"
           placeholder="Выберите агента"
           class="w-43"
       />
-
-
+      <!--      todo обьеденить логику через компьютед в скрипте-->
       <UButton
           v-if="selectedStage"
           :color="data?.find(s => s.id === selectedStage)?.isActive ? 'error' : 'success'"
           :disabled="!selectedStage"
-          :loading="togglingId === selectedStage"
-          @click="toggleAgent(selectedStage!)"
+          :loading="agentId === selectedStage"
+          @click="toggleActivity(selectedStage!)"
       >
         {{
           data?.find(s => s.id === selectedStage)?.isActive
@@ -216,5 +187,25 @@ onMounted(() => {
       </UButton>
     </div>
 
+    <UCheckbox
+        @click="showFilters=!showFilters"
+        label="Фильтры"
+    />
+    <div v-if="showFilters" class="flex flex-col gap-4">
+      <UFormField name="filterParams">
+        <USelect
+            v-model="params.isActive"
+            :items="filterActivityTags"
+            placeholder="Все агенты"
+        />
+      </UFormField>
+
+      <UFormField>
+        <UInput
+            v-model="params.search"
+            placeholder="Поиск..."
+        />
+      </UFormField>
+    </div>
   </UContainer>
 </template>
