@@ -9,12 +9,15 @@ import {onBeforeLeave} from "~/app_helpers/animation_helper";
 // stores
 const agentStore = useAgentStore()
 const {data, loading, params} = storeToRefs(agentStore)
-const {create, getAll} = agentStore
+const {create, getAll, update} = agentStore
+
+// hooks
+
 
 // reactivity variables
 const showControls = ref(false)
 const showFilters = ref(false)
-const selectedStage = ref<number | undefined>(undefined)
+const selectedStage = ref<number | null>(null)
 const agentId = ref<number | null>(null)
 const showCreate = ref<boolean>(false)
 const form = reactive({
@@ -30,31 +33,22 @@ const filterActivityTags = [
 ]
 
 // async functions
-async function toggleActivity(selectedId: number) {
-  try {
-    agentId.value = selectedId
-    const agent = data.value.find(s => s.id === selectedId)
-    if (!agent) return
-
-    const newStatus = !agent.isActive // todo убрать блядский запрос
-    await $fetch(`/api/agents/${selectedId}`, {
-      method: 'PATCH',
-      body: {isActive: newStatus}
-    })
-    agent.isActive = newStatus // оптимистично
-  } finally {
-    agentId.value = null
-  }
-}
-
 async function handleSubmit() {
   try {
-    await create({...form}) // todo выбросить тост
+    await create({...form})
     resetForm()
     showCreate.value = false
   } catch (e) {
     console.error('Create agent failed:', e)
   }
+}
+async function handleUpdate() {
+  if (selectedStage.value == null) return
+  const id = selectedStage.value
+
+  await update(id) // PATCH + getAll() внутри стора (как мы починили ранее)
+
+  // если по текущему фильтру агент исчез — сбросим выбор
 }
 
 // base functions
@@ -64,12 +58,14 @@ function resetForm() {
 }
 
 // computeds
-const agentsList = computed(() => (data.value.length ? data.value : data.value).map(s => ({
-  label: s.stage,
-  value: s.id,
-  class: s.isActive ? 'text-green-700' : 'text-red-700',
-})))
-
+const agentsList = computed(() => (data.value ?? []).map(s => ({
+      label: s.stage,
+      value: s.id,
+      class: s.isActive ? 'text-green-700' : 'text-red-700',
+    })))
+const selectedAgent = computed(() => data.value.find(s => s.id === (selectedStage.value ?? -1)) ?? null)
+const agentsListPainter = computed(() => selectedAgent.value ? (selectedAgent.value.isActive ? 'error' : 'success') : 'neutral')
+const defineAgentStatus = computed(() => selectedAgent.value ? (selectedAgent.value.isActive ? 'Деактивировать' : 'Активировать') : 'Выберите агента')
 
 // watchers
 watch(params, () => {
@@ -171,22 +167,15 @@ onMounted(() => {
           placeholder="Выберите агента"
           class="w-43"
       />
-      <!--      todo обьеденить логику через компьютед в скрипте-->
       <UButton
-          v-if="selectedStage"
-          :color="data?.find(s => s.id === selectedStage)?.isActive ? 'error' : 'success'"
-          :disabled="!selectedStage"
+          v-if="selectedStage != null"
+          :color="agentsListPainter"
+          :label="defineAgentStatus"
+          :disabled="selectedStage == null"
           :loading="agentId === selectedStage"
-          @click="toggleActivity(selectedStage!)"
-      >
-        {{
-          data?.find(s => s.id === selectedStage)?.isActive
-              ? 'Деактивировать'
-              : 'Активировать'
-        }}
-      </UButton>
+          @click="handleUpdate"
+      />
     </div>
-
     <UCheckbox
         @click="showFilters=!showFilters"
         label="Фильтры"

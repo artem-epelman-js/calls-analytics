@@ -39,14 +39,19 @@ const q = {
     isActive: undefined as boolean | undefined,
 }
 
+const toast = useToast()
+
 export const useAgentStore = defineStore('agents', () => {
     // state
     const data = ref<Agent[]>([])
     const count = ref<number>(0)
     const meta = ref<AgentsResponse['meta'] | null>(null)
     const loading = ref(false)
+    const agentId = ref<number | null>(null)
     const error = ref<string | null>(null)
     const params = reactive({...q})
+
+
     const resetParams = () => {
         return Object.assign(params, q)
     }
@@ -67,15 +72,66 @@ export const useAgentStore = defineStore('agents', () => {
         }
     }
 
+    async function getById(id: number) {
+        try {
+            const res = await $fetch<Agent>(`/api/agents/${id}`)
+            return res
+        } catch (e: any) {
+            console.error(e)
+            error.value = e?.message ?? 'Failed to get agent'
+        }
+    }
+
+    async function update(selectedId: number) {
+        try {
+            agentId.value = selectedId
+            const agent = data.value.find(s => s.id === selectedId)
+            if (!agent) return
+
+            const newStatus = !agent.isActive
+            await $fetch(`/api/agents/${selectedId}`, {
+                method: 'PATCH',
+                body: {isActive: newStatus}
+            });
+
+            agent.isActive = newStatus
+            toast.add({
+                title: 'Пользователь обновлен!',
+                color: 'secondary',
+                icon: "ix:replace"
+            })
+        } catch (e: any) {
+            console.error(e)
+            error.value = e?.message ?? 'Failed to create agent'
+            toast.add({
+                title: 'Не удалось обновить пользователя',
+                color: 'error',
+                icon: "ix:error-filled"
+            })
+        } finally {
+            agentId.value = null
+        }
+    }
+
     async function create(payload: CreateAgentPayload) {
         loading.value = true
         error.value = null
         try {
             await $fetch('/api/agents', {method: 'POST', body: payload})
             await getAll()
+            toast.add({
+                title: 'Пользователь успешно создан',
+                color: 'success',
+                icon: "ix:add-user-filled"
+            })
         } catch (e: any) {
             console.error(e)
             error.value = e?.message ?? 'Failed to create agent'
+            toast.add({
+                title: 'Не удалось создать пользователя',
+                color: 'error',
+                icon: "ix:error-filled"
+            })
         } finally {
             loading.value = false
         }
@@ -87,6 +143,6 @@ export const useAgentStore = defineStore('agents', () => {
         // state
         data, count, meta, loading, error, params,
         // actions
-        getAll, create, resetParams,
+        getAll, getById, create, update, resetParams,
     }
 })

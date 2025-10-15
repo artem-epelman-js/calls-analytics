@@ -77,7 +77,7 @@ export default defineEventHandler(async (event: H3Event) => {
 
         let existingSet = new Set<string>()
         if (keys.length) {
-            const existing = await prisma.call.findMany({
+            const existing = await prisma.calls.findMany({
                 where: {
                     agentId,                        // важное отличие — ограничиваем текущим агентом
                     OR: keys.map(k => ({ phone: k.phone, date: k.date })),
@@ -92,7 +92,7 @@ export default defineEventHandler(async (event: H3Event) => {
             return { success: true, message: 'No new records to insert (duplicates).' }
         }
 
-        const result = await prisma.call.createMany({
+        const result = await prisma.calls.createMany({
             data: toInsert,
             // skipDuplicates: true // включай, если есть @@unique([agentId, phone, date]) в схеме
         })
