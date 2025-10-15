@@ -1,10 +1,10 @@
-generator client {
-  provider = "prisma-client-js"
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
 }
 
-datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+generator client {
+  provider = "prisma-client-js"
 }
 
 model Agent {
@@ -13,12 +13,12 @@ model Agent {
   isActive  Boolean     @default(true)
   createdAt DateTime    @default(now())
   updatedAt DateTime    @updatedAt
-  call      Call[]
+  call      Calls[]
   Live      Live[]
   Messanger Messanger[]
 }
 
-model Call {
+model Calls {
   id        Int      @id @default(autoincrement())
   agentId   Int?
   date      DateTime
