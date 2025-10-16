@@ -8,7 +8,7 @@ export default defineEventHandler(async (event: H3Event) => {
         const query = getQuery(event) as Record<string, any>
         // 2) Разрешённые поля и поисковые
         const searchFields = ['phone']
-        const filterable   = ['createdAt']
+        const filterable   = ['date']
         // 3) Собираем аргументы для Prisma
         const qb = new QueryBuilder<Prisma.CallsFindManyArgs>(
             query,
@@ -18,9 +18,8 @@ export default defineEventHandler(async (event: H3Event) => {
             // .useSomeFor([...]) // если будут 1:N фильтры
             .filter()
             .search()
-            .sort({ sortBy: 'createdAt', sortOrder: 'desc' })
+            .sort()
             .paginate()
-
         const args = qb.build()
 
         const [calls, count] = await Promise.all([

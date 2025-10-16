@@ -1,103 +1,154 @@
-import {geo as GeoEnum, PrismaClient} from '@prisma/client'
-import {createError, readMultipartFormData} from "h3";
-import {
-    isTotalRow,
-    normalizeName,
-    parseCsv,
-    resolveAgentIdByName,
-    toIntSafe
-} from "~~/server/server_helpers/upload-utils";
+// server/api/calls/upload.post.ts
+import { defineEventHandler, createError } from 'h3'
+import { readMultipartFormData, isError } from 'h3'
+import Papa from 'papaparse'
+import type { Prisma } from '@prisma/client'
+import prisma from "~~/lib/prisma";
 
-const prisma = new PrismaClient()
+// --- утилиты ---------------------------------------------------------
+
+function toInt(v: unknown): number | null {
+    if (v == null) return null
+    const s = String(v).trim()
+    if (!s) return null
+    const n = Number(s.replace(',', '.'))
+    return Number.isFinite(n) ? Math.trunc(n) : null
+}
+
+function cleanPhone(s: unknown): string {
+    return String(s ?? '').replace(/\D/g, '')
+}
+
+function pick<T = any>(row: Record<string, any>, keys: string[]): T | undefined {
+    for (const k of Object.keys(row)) {
+        const nk = k.toLowerCase().replace(/\s+/g, '')
+        const hit = keys.find(t => nk === t || nk.includes(t))
+        if (hit) return row[k]
+    }
+    return undefined
+}
+
+// --------------------------------------------------------------------
 
 export default defineEventHandler(async (event) => {
-    // GET AND PREPARE DATA
-    const form = await readMultipartFormData(event)
-    if (!form) {
-        throw createError({statusCode: 400, statusMessage: 'No multipart form received'})
-    }
+    try {
+        const form = await readMultipartFormData(event)
+        if (!form) throw createError({ statusCode: 400, statusMessage: 'No multipart form received' })
 
-    const file = form.find(f => f.name === 'file')
-    if (!file || !file.data) {
-        throw createError({statusCode: 400, statusMessage: 'CSV file is required (field "file")'})
-    }
-    const dateStr = form.find(f => f.name === 'date')?.data?.toString('utf8')
-    const date = dateStr ? new Date(dateStr) : new Date()
-    const dateUTC = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()))
-    const dryRun = form.find(f => f.name === 'dryRun')?.data?.toString('utf8') === '1'
-    // GET AND PREPARE DATA ENDS
+        const file = form.find(f => f.name === 'file')
+        const agentIdStr = form.find(f => f.name === 'agentId')?.data?.toString('utf8')
 
-    // PAPAPARSE
-    const {rows} = parseCsv(file.data)
+        if (!file?.data) throw createError({ statusCode: 400, statusMessage: 'CSV file (field "file") is required' })
+        if (!agentIdStr) throw createError({ statusCode: 400, statusMessage: 'agentId is required' })
 
-    const results: {
-        name: string
-        agentId: number | null
-        applied: number
-        skipped: string[]
-        reasons?: string[]
-    }[] = []
+        const agentId = Number(agentIdStr)
+        if (!Number.isFinite(agentId)) throw createError({ statusCode: 400, statusMessage: 'agentId must be a number' })
 
-    let totalUpserts = 0
-    // PAPAPARSE ENDS
+        // опционально проверим, что агент существует
+        const agent = await prisma.agent.findUnique({ where: { id: agentId }, select: { id: true } })
+        if (!agent) throw createError({ statusCode: 404, statusMessage: `Agent ${agentId} not found` })
 
-    // PRISMA ACTIONS
-    for (const r of rows) {
-        const rawName = String(r.name ?? '').trim()
-        if (!rawName) continue
-        if (isTotalRow(rawName)) continue
-
-        const name = normalizeName(rawName)
-        const agentId = await resolveAgentIdByName(name)
-
-        const rowReport = {name, agentId, applied: 0, skipped: [] as string[], reasons: [] as string[]}
-
-        if (!agentId) {
-            rowReport.reasons?.push('agent not found')
-            results.push(rowReport)
-            continue
+        // Парсим CSV
+        const csv = file.data.toString('utf8')
+        const parsed = Papa.parse(csv, { header: true, skipEmptyLines: true })
+        if (parsed.errors?.length) {
+            const sample = parsed.errors.slice(0, 3).map(e => `${e.type}:${e.code} @ row ${e.row}`).join('; ')
+            throw createError({ statusCode: 400, statusMessage: `CSV parse error: ${sample}` })
         }
 
-        for (const g of ['KZ', 'BY', 'KG', 'UZ'] as const) {
-            const n = toIntSafe(r[g])
-            if (n === null || n === 0) {
-                rowReport.skipped.push(g)
-                continue
+        // Ожидаемые поля (гибко):
+        //  - дата/время: Time(UNIX sec) | Date | Datetime
+        //  - номер: Number | Phone
+        //  - длительность: Duration
+        //  - статус: Info | Status
+        const rawRows = parsed.data as any[]
+
+        const toCreate: Prisma.CallsUncheckedCreateInput[] = []
+
+        for (const r of rawRows) {
+            // время: поддержим UNIX seconds (Time) ИЛИ Date в читаемом виде
+            const timeRaw = pick(r, ['time', 'timestamp', 'date', 'datetime'])
+            let date: Date | null = null
+            if (timeRaw != null) {
+                const unix = toInt(String(timeRaw).split(',')[0])
+                if (unix != null) {
+                    date = new Date(unix * 1000)
+                } else {
+                    const d = new Date(String(timeRaw))
+                    if (!isNaN(d.getTime())) date = d
+                }
             }
 
-            const geo = g as keyof typeof GeoEnum
+            const phone = cleanPhone(pick(r, ['number', 'phone']))
+            const duration = toInt(pick(r, ['duration']))
+            const status = String(pick(r, ['info', 'status']) ?? '').trim()
+            // если есть price в CSV — можно взять, иначе 0
+            const priceNum = Number(String(pick(r, ['price', 'cost']) ?? '0').replace(',', '.')) || 0
 
-            if (!dryRun) {
-                // upsert по композитному ключу @@unique([agentId, geo, date])
-                await prisma.live.upsert({
-                    where: {
-                        // Prisma генерирует composite unique input: agentId_geo_date
-                        agentId_geo_date: {agentId, geo: GeoEnum[geo], date: dateUTC}
-                    },
-                    update: {count: n},
-                    create: {
-                        agentId,
-                        date: dateUTC,
-                        count: n,
-                        geo: GeoEnum[geo]
-                    }
-                })
-            }
+            if (!date || isNaN(date.getTime())) continue
+            if (!phone) continue
+            if (!Number.isFinite(duration)) continue
+            if (!status) continue
 
-            rowReport.applied += 1
-            totalUpserts += 1
+            toCreate.push({
+                agentId,
+                date,
+                phone,
+                duration: duration!,
+                status,
+                // если в схеме price Decimal — Prisma сам приведёт number к Decimal
+                price: priceNum
+            })
         }
 
-        results.push(rowReport)
-    }
-    // PRISMA ACTIONS ENDS
+        if (!toCreate.length) {
+            return { success: false, message: 'No valid rows to insert.' }
+        }
 
-    return {
-        ok: true,
-        dryRun,
-        date: dateUTC.toISOString().slice(0, 10),
-        totalRows: rows.length,
-        totalUpserts,
-        details: results
+        // Дедуп внутри файла по (phone, date)
+        const seen = new Set<string>()
+        const unique = toCreate.filter(r => {
+            const key = `${r.phone}|${r.date.toISOString()}`
+            if (seen.has(key)) return false
+            seen.add(key)
+            return true
+        })
+
+        // Уберём уже существующие в БД у этого агента
+        const keys = unique.map(r => ({ phone: r.phone, date: r.date }))
+        let existingSet = new Set<string>()
+        if (keys.length) {
+            const existing = await prisma.calls.findMany({
+                where: {
+                    agentId,
+                    OR: keys.map(k => ({ phone: k.phone, date: k.date }))
+                },
+                select: { phone: true, date: true }
+            })
+            existingSet = new Set(existing.map(e => `${e.phone}|${e.date.toISOString()}`))
+        }
+
+        const toInsert = unique.filter(r => !existingSet.has(`${r.phone}|${r.date.toISOString()}`))
+        if (!toInsert.length) {
+            return { success: true, inserted: 0, skipped: unique.length, reason: 'duplicates' }
+        }
+
+        const res = await prisma.calls.createMany({
+            data: toInsert,
+            // если есть @@unique([agentId, phone, date]) — можно включить
+            // skipDuplicates: true,
+        })
+
+        return {
+            success: true,
+            inserted: res.count,
+            parsed: rawRows.length,
+            uniqueInFile: unique.length,
+            skippedAsExisting: unique.length - toInsert.length
+        }
+    } catch (err: any) {
+        if (isError(err)) throw err
+        console.error('Calls upload error:', err)
+        throw createError({ statusCode: 500, statusMessage: 'Upload failed' })
     }
 })
