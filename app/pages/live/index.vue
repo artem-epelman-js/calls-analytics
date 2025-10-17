@@ -12,38 +12,7 @@ const liveData = ref([])
 const geoArr = ref(['KZ', 'KG', 'BY', 'UZ'])
 const form = reactive({agentId: null, date: '', count: null, geo: ''})
 
-const columns = [
-  {
-    id: 'action',
-    header: 'Действие',
-    cell: ({ row }) =>
-        h(
-            UDropdownMenu,
-            { content: { align: 'end' }, items: actionsItems(row) },
-            () => h(UButton, {
-              icon: 'i-lucide-ellipsis-vertical',
-              variant: 'subtle',
-              size: 'xl',
-              class: 'cursor-pointer'
-            })
-        )
-  },
-  { id: 'id', header: 'ID', accessorKey: 'id' },
-  {
-    id: 'agentStage',
-    header: 'Стейдж',
-    accessorFn: (row) => row?.agent?.stage ?? '', // ⬅️ вместо 'agent.stage'
-    sortingFn: 'alphanumeric',
-  },
-  { id: 'count', header: 'Колл-во', accessorKey: 'count' },
-  {
-    id: 'date',
-    header: 'Дата выдачи',
-    accessorFn: (row) => row?.date,
-    cell: ({ row }) => format(new Date(row.original.date), 'dd-MM'),
-  },
-  { id: 'geo', header: 'Гео', accessorKey: 'geo' },
-]
+
 const selectedStage = ref(null)
 
 async function submit () {
