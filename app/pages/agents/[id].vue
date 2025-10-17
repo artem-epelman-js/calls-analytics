@@ -1,17 +1,18 @@
 <script setup lang="ts">
 
 // imports
-import {h,} from 'vue'
+import {h, reactive,} from 'vue'
 import {ref} from 'vue'
-import {useRoute, useRouter} from 'vue-router'
+import {useRoute} from 'vue-router'
 import {storeToRefs} from "pinia";
 import {format} from 'date-fns'
 import {UBadge, UButton, UDropdownMenu} from "#components";
-import {useAgentStore} from "~~/stores/agent.store";
 import {useCallStore} from "~~/stores/call.store";
 import type {TableColumn} from "#ui/components/Table.vue";
-import {callValidator} from "~~/validators/call.validator";
+import type {Calls} from '~~/stores/call.store'
+import type {CreateLivePayload, Live} from '~~/stores/live.store'
 import {type SortableField, toggleSort} from "~/app_helpers/sort-helper";
+import {useLiveStore} from "~~/stores/live.store";
 
 
 // configs
@@ -46,22 +47,13 @@ type CallStatus =
     | 'Temporarily unavailable';
 
 
-type Calls = {
-  id: number
-  AgentId: number
-  date: Date
-  phone: string
-  duration: number
-  price: number
-  status: CallStatus
-  createdAt: Date
-  updatedAt: Date
-}
+
+
+
 
 
 // hooks
 const route = useRoute()
-const router = useRouter()
 const agentId = Number(route.params.id as string)
 
 //
@@ -74,11 +66,10 @@ watch([startDate, endDate], ([s, e], [os, oe]) => {
   if (activeTab.value === 'calls') {
     callsParams.value.date__gte = s || undefined
     callsParams.value.date__lte = e || undefined
-    // если нужно сразу перегружать:
-    // callStore.getAll()
   }
 })
 
+// base functions
 function renderSortableHeader(field: SortableField, label: string) {
   return () =>
       h(
@@ -100,15 +91,22 @@ function renderSortableHeader(field: SortableField, label: string) {
 }
 
 
+
+
 // stores
 // -- call store
-const {getAll: getCalls, create: createCalls, getById, remove: deleteCall, resetParams} = useCallStore()
-const {data, count: callsCount, loading, error, params: callsParams} = storeToRefs(useCallStore())
+const {getAll: getCalls, remove: deleteCall} = useCallStore()
+const {data, count: callsCount, params: callsParams} = storeToRefs(useCallStore())
+
+// -- live store
+const {getAll: getLive, remove: deleteLive} = useLiveStore()
+const {data: live, count: liveCount, params: liveParams} = storeToRefs(useLiveStore())
 
 // reactive variables
 const agent = ref<any | null>(null)
 // const page = ref(1)
 const file = ref<File | null>(null)
+const liveForm = reactive<CreateLivePayload>(null)
 
 
 // base const
@@ -140,6 +138,25 @@ const tabs = [
 
   }
 ]
+const liveGeo = [
+  {
+    label: 'KZ',
+    value: 'KZ',
+  },
+  {
+    label: 'KG',
+    value: 'KG',
+  },
+  {
+    label: 'BY',
+    value: 'BY',
+  },
+  {
+    label: 'UZ',
+    value: 'UZ',
+  },
+
+]
 
 
 // table actions
@@ -159,14 +176,27 @@ function callActions(row: any) {
     }
   ]]
 }
+function liveActions(row: any) {
+  const liveId = row.original?.id
+  return [[
+    {
+      label: 'Удалить',
+      icon: 'i-heroicons-trash-20-solid',
+      onSelect: async () => {
+        try {
+          await deleteLive(liveId)
+        } catch (e) {
+          console.error(e)
+        }
+      }
+    }
+  ]]
+}
+
+
 
 // tables
 const callsColumns: TableColumn<Calls>[] = [
-  // {
-  //   accessorKey: 'id',
-  //   header: 'ID',
-  //   cell: ({row}) => `${row.getValue('id')}`
-  // },
   {
     id: 'action',
     header: 'Действие',
@@ -277,16 +307,42 @@ const callsColumns: TableColumn<Calls>[] = [
     }
   },
 ]
+const liveColumns = [
+  {
+    id: 'action',
+    header: 'Действие',
+    cell: ({ row }) =>
+        h(
+            UDropdownMenu,
+            { content: { align: 'end' }, items: liveActions(row) },
+            () => h(UButton, {
+              icon: 'i-lucide-ellipsis-vertical',
+              variant: 'subtle',
+              size: 'xl',
+              class: 'cursor-pointer'
+            })
+        )
+  },
+  { id: 'id', header: 'ID', accessorKey: 'id' },
+  {
+    id: 'agentStage',
+    header: 'Стейдж',
+    accessorFn: (row) => row?.agent?.stage ?? '', // ⬅️ вместо 'agent.stage'
+    sortingFn: 'alphanumeric',
+  },
+  { id: 'count', header: 'Колл-во', accessorKey: 'count' },
+  {
+    id: 'date',
+    header: 'Дата выдачи',
+    accessorFn: (row) => row?.date,
+    cell: ({ row }) => format(new Date(row.original.date), 'dd-MM'),
+  },
+  { id: 'geo', header: 'Гео', accessorKey: 'geo' },
+]
 
 
 // async functions
-// async function handleSubmit() {
-//   await useFetch(`/api/calls/${agentId}`, {
-//     params: {startDate: state.startDate, endDate: state.endDate}
-//   })
-//   await getCalls()
-// }
-async function upload() {
+async function uploadCalls() {
   if (!file.value) {
     alert('Пожалуйста, выберите файл.')
     return
@@ -310,11 +366,17 @@ async function upload() {
   }
 }
 
+
 // computed
 
 // watchers
 watch(callsParams, () => {
   getCalls()
+}, {deep: true})
+
+
+watch(liveParams, () => {
+  getLive()
 }, {deep: true})
 
 // watch(selectedStage, (val) => {
@@ -328,9 +390,9 @@ watch(callsParams, () => {
 
 
 // lifecycle hooks
-
 onMounted(async () => {
   await getCalls()
+  await getLive()
 })
 
 
@@ -400,29 +462,95 @@ onMounted(async () => {
               </UFormField>
               <Transition name="fade-slide" mode="out-in">
                 <UTable
-                    :key="tableTransitionKey"
                     :data="data || []"
                     :columns="callsColumns"
                 />
               </Transition>
             </UCard>
-            {{ data?.data }}
+<!--            {{ data?.data }}-->
             <UPagination
                 class="flex justify-center mt-4"
                 size="xl"
                 v-model:page="callsParams.page"
                 :total="callsCount"/>
           </template>
-          <!--          <template #live>-->
-          <!--            <UCard class="mt-10">-->
-          <!--              <UTable :data="live?.live"/>-->
-          <!--            </UCard>-->
-          <!--          </template>-->
-          <!--          <template #messangers>-->
-          <!--            <UCard class="mt-10">-->
-          <!--              <UTable :data="messanger?.messanger"/>-->
-          <!--            </UCard>-->
-          <!--          </template>-->
+
+
+
+                    <template #live>
+                      <UCard class="rounded-2xl shadow-sm">
+                        <UForm
+                            :state="liveForm"
+                            @submit="submit"
+                            class="grid grid-cols-1 md:grid-cols-2 gap-4"
+                        >
+                          <UFormField label="Выберите агента" name="agentId">
+                            <USelect
+                                v-model="liveForm.agentId"
+                                :items="items"
+                                option-attribute="label"
+                                value-attribute="value"
+                                placeholder="Выбери из списка"
+                                class="w-40"
+                            />
+                          </UFormField>
+
+                          <UFormField label="Дата" name="date">
+                            <UInput v-model="liveForm.date" type="date" />
+                          </UFormField>
+
+                          <UFormField label="Колл-во" name="count">
+                            <UInput v-model.number="liveForm.count"
+                                    type="number"
+                                    min="0" />
+                          </UFormField>
+
+                          <UFormField label="Гео" name="geo">
+                            <USelect
+                                v-model="liveForm.geo"
+                                :items="liveGeo"
+                                option-attribute="label"
+                                value-attribute="value"
+                                placeholder="Выбери гео"
+                            />
+                          </UFormField>
+
+                          <div class="md:col-span-2 flex justify-end">
+                            <UButton type="submit"
+                                     size="lg"
+                                     class="rounded-xl px-6">
+                              Сохранить
+                            </UButton>
+                          </div>
+                        </UForm>
+                      </UCard>
+
+                      <UCard class="rounded-2xl shadow-sm mt-6">
+                        <div class="flex items-center justify-between mb-3">
+                          <h3 class="text-lg font-medium">История внесений</h3>
+                          <span class="text-sm text-gray-500">Всего: {{ live.length }}</span>
+                        </div>
+                        <UTable
+                            :data="live.live"
+                            :columns="liveColumns"
+                        />
+                      </UCard>
+
+                      <UPagination
+                          class="flex justify-center mt-4"
+                          size="xl"
+                          v-model:page="liveParams.page"
+                          :total="liveCount"/>
+
+                    </template>
+
+
+
+<!--                    <template #messangers>-->
+<!--                      <UCard class="mt-10">-->
+<!--                        <UTable :data="messanger?.messanger"/>-->
+<!--                      </UCard>-->
+<!--                    </template>-->
           <template #analytics>
             <UCard>
               <div class="grid grid-cols-2 gap-4">
@@ -456,7 +584,7 @@ onMounted(async () => {
                 </div>
                 <div class="flex flex-col justify-end">
                   <UFileUpload v-model="file" label="Загрузить файл" class="w-100 self-end"/>
-                  <UButton @click="upload" class="w-30 self-end mt-4">
+                  <UButton @click="uploadCalls" class="w-30 self-end mt-4">
                     Отправить выгрузку
                   </UButton>
                 </div>

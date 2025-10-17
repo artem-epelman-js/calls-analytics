@@ -29,7 +29,7 @@ export type CallsResponse = {
         hasPrev: boolean
         hasNext: boolean
         orderBy: 'id' | 'date' | 'phone' | 'duration' | 'price' | 'status' | 'createdAt' | 'updatedAt'
-        sortOrder: 'a       sc' | 'desc'
+        sortOrder: 'asc' | 'desc'
     }
 }
 
