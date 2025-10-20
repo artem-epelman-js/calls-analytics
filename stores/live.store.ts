@@ -17,14 +17,23 @@ export type Live = {
 export type CreateLivePayload = {
     agentId: number
     geo: string
-    count: number
+    count: number|null
     date:string
 }
+
+export type UpdateLivePayload = {
+    geo: string
+    count: number|null
+    date:string
+    price:number|null
+}
+
 
 export type LiveResponse = {
     data: Live[]
     count: number
     meta: {
+        agentId: number
         page: number
         take: number
         total: number
@@ -37,6 +46,7 @@ export type LiveResponse = {
 }
 
 const q = {
+    agentId: undefined as number | undefined,
     page: 1 as number,
     take: 10 as number,
     sortBy: 'geo' as string,
@@ -112,6 +122,32 @@ export const useLiveStore = defineStore('live', () => {
         }
     }
 
+    async function update(id: number, body: Partial<CreateLivePayload>) {
+        try {
+            const live = data.value.find(l => l.id === id)
+            if (!live) return
+
+            await $fetch(`/api/live/${id}`, {
+                method: 'PATCH',
+                body,
+            });
+
+            toast.add({
+                title: `Запись №${id} обновлена!`,
+                color: 'secondary',
+                icon: "ix:replace"
+            })
+        } catch (e: any) {
+            console.error(e)
+            error.value = e?.message ?? 'Failed to create agent'
+            toast.add({
+                title: 'Не удалось обновить пользователя',
+                color: 'error',
+                icon: "ix:error-filled"
+            })
+        }
+    }
+
     async function remove(id: any) {
         try {
             await $fetch(`/api/live/${id}`, {method: 'DELETE'})
@@ -129,6 +165,6 @@ export const useLiveStore = defineStore('live', () => {
         // state
         data, count, loading, error, params,
         // actions
-        getAll, getById, create, remove, resetParams,
+        getAll, getById, create, update, remove, resetParams,
     }
 })

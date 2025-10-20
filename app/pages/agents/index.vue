@@ -8,7 +8,7 @@ import {onBeforeLeave} from "~/app_helpers/animation_helper";
 
 // stores
 const agentStore = useAgentStore()
-const {data, loading, params} = storeToRefs(agentStore)
+const {data, agentsList, loading, params} = storeToRefs(agentStore)
 const {create, getAll, update} = agentStore
 
 // hooks
@@ -58,11 +58,7 @@ function resetForm() {
 }
 
 // computeds
-const agentsList = computed(() => (data.value ?? []).map(s => ({
-      label: s.stage,
-      value: s.id,
-      class: s.isActive ? 'text-green-700' : 'text-red-700',
-    })))
+
 const selectedAgent = computed(() => data.value.find(s => s.id === (selectedStage.value ?? -1)) ?? null)
 const agentsListPainter = computed(() => selectedAgent.value ? (selectedAgent.value.isActive ? 'error' : 'success') : 'neutral')
 const defineAgentStatus = computed(() => selectedAgent.value ? (selectedAgent.value.isActive ? 'Деактивировать' : 'Активировать') : 'Выберите агента')

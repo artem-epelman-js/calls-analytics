@@ -13,9 +13,9 @@ export default defineEventHandler(async (event: H3Event) => {
         throw createError({ statusCode: 400, statusMessage: 'isActive must be boolean' })
     }
 
-    return await prisma.agent.update({
+    return prisma.agent.update({
         where: {id},
         data: {isActive: body.isActive},
         select: {id: true, isActive: true},
-    })
+    });
 })

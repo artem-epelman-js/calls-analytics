@@ -1,6 +1,6 @@
 // stores/agent.store.ts
 import {defineStore} from 'pinia'
-import {ref} from 'vue'
+import {computed, ref} from 'vue'
 
 export type Agent = {
     id: number
@@ -31,6 +31,7 @@ export type CreateAgentPayload = {
 }
 
 const q = {
+    agentId: undefined as number | undefined,
     page: 1 as number,
     take: 10 as number,
     orderBy: 'stage' as string,
@@ -39,7 +40,11 @@ const q = {
     isActive: undefined as boolean | undefined,
 }
 
+
+
 const toast = useToast()
+const selectedStage = ref<number | null>(null)
+
 
 export const useAgentStore = defineStore('agents', () => {
     // state
@@ -137,11 +142,20 @@ export const useAgentStore = defineStore('agents', () => {
         }
     }
 
+    const agentsList = computed(() => (data.value ?? []).map(s => ({
+        label: s.stage,
+        value: s.id,
+        class: s.isActive ? 'text-green-700' : 'text-red-700',
+    })))
+
+    const selectedAgent = computed(() => data.value.find(s => s.id === (selectedStage.value ?? -1)) ?? null)
+
+
     // опционально: переключение статуса
 
     return {
         // state
-        data, count, meta, loading, error, params,
+        data, agentsList, selectedAgent, count, meta, loading, error, params,
         // actions
         getAll, getById, create, update, resetParams,
     }
