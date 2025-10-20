@@ -1,7 +1,7 @@
 <script setup lang="ts">
 
 // imports
-import {h, reactive,} from 'vue'
+import {computed, h, reactive,} from 'vue'
 import {ref} from 'vue'
 import {useRoute} from 'vue-router'
 import {storeToRefs} from "pinia";
@@ -10,9 +10,10 @@ import {UBadge, UButton, UDropdownMenu} from "#components";
 import {useCallStore} from "~~/stores/call.store";
 import type {TableColumn} from "#ui/components/Table.vue";
 import type {Calls} from '~~/stores/call.store'
-import type {CreateLivePayload, Live} from '~~/stores/live.store'
+import type {CreateLivePayload, Live, UpdateLivePayload} from '~~/stores/live.store'
 import {type SortableField, toggleSort} from "~/app_helpers/sort-helper";
 import {useLiveStore} from "~~/stores/live.store";
+import {useAgentStore} from "~~/stores/agent.store";
 
 
 // configs
@@ -52,14 +53,21 @@ type CallStatus =
 
 
 
-// hooks
-const route = useRoute()
-const agentId = Number(route.params.id as string)
 
-//
+
+
+// reactive variables
 const startDate = ref<string | undefined>(undefined)
 const endDate = ref<string | undefined>(undefined)
 const activeTab = ref<'calls' | 'live' | 'messengers' | 'analytics'>('calls')
+const selectedStage = ref<number | null>(null)
+const showCreateLiveForm = ref<boolean>(false)
+
+// hooks
+const route = useRoute()
+const agentId = Number(route.params.id as string)
+const selectedAgent = computed(() => data.value.find(s => s.id === (selectedStage.value ?? -1)) ?? null)
+
 
 watch([startDate, endDate], ([s, e], [os, oe]) => {
   // реагируем на изменения дат
@@ -94,20 +102,23 @@ function renderSortableHeader(field: SortableField, label: string) {
 
 
 // stores
+
+
+// -- agentStore
+const {data: agents, agentsList} = storeToRefs(useAgentStore())
+const {getAll: getAgents} = useAgentStore()
+
+
 // -- call store
 const {getAll: getCalls, remove: deleteCall} = useCallStore()
 const {data, count: callsCount, params: callsParams} = storeToRefs(useCallStore())
 
 // -- live store
-const {getAll: getLive, remove: deleteLive} = useLiveStore()
+const {getAll: getLive, create:createLive, update:updateLive, remove: deleteLive} = useLiveStore()
 const {data: live, count: liveCount, params: liveParams} = storeToRefs(useLiveStore())
 
 // reactive variables
 const agent = ref<any | null>(null)
-// const page = ref(1)
-const file = ref<File | null>(null)
-const liveForm = reactive<CreateLivePayload>(null)
-
 
 // base const
 const tabs = [
@@ -158,6 +169,21 @@ const liveGeo = [
 
 ]
 
+// const page = ref(1)
+const file = ref<File | null>(null)
+const liveCreateForm = reactive<CreateLivePayload>({
+  agentId: agentId,
+  geo: '',
+  count: null,
+  date:'',
+})
+const liveUpdateForm = reactive<UpdateLivePayload>({
+  geo: '',
+  count: null,
+  date:'',
+  price:null,
+})
+
 
 // table actions
 function callActions(row: any) {
@@ -189,7 +215,19 @@ function liveActions(row: any) {
           console.error(e)
         }
       }
-    }
+    },
+    {
+      label: 'Редактировать',
+      icon:'ix:edit-document',
+      onSelect: async () => {
+        try {
+
+          await updateLive(liveId, liveCreateForm)
+        } catch (e) {
+          console.error(e)
+        }
+      }
+    },
   ]]
 }
 
@@ -323,13 +361,6 @@ const liveColumns = [
             })
         )
   },
-  { id: 'id', header: 'ID', accessorKey: 'id' },
-  {
-    id: 'agentStage',
-    header: 'Стейдж',
-    accessorFn: (row) => row?.agent?.stage ?? '', // ⬅️ вместо 'agent.stage'
-    sortingFn: 'alphanumeric',
-  },
   { id: 'count', header: 'Колл-во', accessorKey: 'count' },
   {
     id: 'date',
@@ -338,6 +369,19 @@ const liveColumns = [
     cell: ({ row }) => format(new Date(row.original.date), 'dd-MM'),
   },
   { id: 'geo', header: 'Гео', accessorKey: 'geo' },
+  {
+    accessorKey: 'updatedAt',
+    header: 'Загружен',
+    cell: ({row}) => {
+      return new Date(row.getValue('updatedAt')).toLocaleString('en-US', {
+        day: 'numeric',
+        month: 'short',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false
+      })
+    }
+  },
 ]
 
 
@@ -365,12 +409,20 @@ async function uploadCalls() {
   } finally {
   }
 }
+async function handleLiveCreate() {
+  try {
+    await createLive({...liveCreateForm})
+    showCreateLiveForm.value = false
+  } catch (e) {
+    console.error('Create agent failed:', e)
+  }
+}
 
 
 // computed
 
 // watchers
-watch(callsParams, () => {
+watch(callsParams, ()=> {
   getCalls()
 }, {deep: true})
 
@@ -379,20 +431,15 @@ watch(liveParams, () => {
   getLive()
 }, {deep: true})
 
-// watch(selectedStage, (val) => {
-//   if (val == null) return
-//   const id = Number(val)
-//   router.push({path: `/agents/${id}`})
-//   getCalls(id)
-//   getLive(id)
-//   getMessanger(id)
-// })
+
 
 
 // lifecycle hooks
 onMounted(async () => {
+  [liveParams.value.agentId, callsParams.value.agentId] = [agentId, agentId]
   await getCalls()
   await getLive()
+  await getAgents()
 })
 
 
@@ -402,14 +449,7 @@ onMounted(async () => {
     <UCard>
       <div class="flex items-center justify-between gap-4 border-b pb-4">
         <div class="flex items-center gap-2">
-          <!--          <USelect-->
-          <!--              class="w-50"-->
-          <!--              v-model="selectedStage"-->
-          <!--              :items="agentsList"-->
-          <!--              size="xl"-->
-          <!--              placeholder="Выбери агента"-->
-          <!--              :loading="!agents?.data?.length"-->
-          <!--          />-->
+
         </div>
       </div>
       <div class="grid grid-cols-3 gap-6 pt-4">
@@ -479,49 +519,48 @@ onMounted(async () => {
 
                     <template #live>
                       <UCard class="rounded-2xl shadow-sm">
-                        <UForm
-                            :state="liveForm"
-                            @submit="submit"
-                            class="grid grid-cols-1 md:grid-cols-2 gap-4"
+                        <div class="flex justify-end">
+                          <UButton
+                              :label="showCreateLiveForm ? 'Скрыть форму' : 'Добавить лайв'"
+                              :icon="showCreateLiveForm ? 'i-lucide-minus' : 'i-lucide-plus'"
+                              @click="showCreateLiveForm = !showCreateLiveForm"
+
+                          />
+                        </div>
+
+                        <UForm v-if="showCreateLiveForm"
+                            :state="liveCreateForm"
+                            @submit.prevent=handleLiveCreate
                         >
-                          <UFormField label="Выберите агента" name="agentId">
-                            <USelect
-                                v-model="liveForm.agentId"
-                                :items="items"
-                                option-attribute="label"
-                                value-attribute="value"
-                                placeholder="Выбери из списка"
-                                class="w-40"
-                            />
-                          </UFormField>
+                          <div class="flex justify-start gap-4">
+                            <UFormField label="Дата" name="date">
+                              <UInput v-model="liveCreateForm.date" type="date" />
+                            </UFormField>
 
-                          <UFormField label="Дата" name="date">
-                            <UInput v-model="liveForm.date" type="date" />
-                          </UFormField>
+                            <UFormField label="Колл-во" name="count">
+                              <UInput v-model.number="liveCreateForm.count"
+                                      type="number"
+                                      min="0" />
+                            </UFormField>
 
-                          <UFormField label="Колл-во" name="count">
-                            <UInput v-model.number="liveForm.count"
-                                    type="number"
-                                    min="0" />
-                          </UFormField>
-
-                          <UFormField label="Гео" name="geo">
-                            <USelect
-                                v-model="liveForm.geo"
-                                :items="liveGeo"
-                                option-attribute="label"
-                                value-attribute="value"
-                                placeholder="Выбери гео"
-                            />
-                          </UFormField>
-
-                          <div class="md:col-span-2 flex justify-end">
+                            <UFormField label="Гео" name="geo">
+                              <USelect
+                                  v-model="liveCreateForm.geo"
+                                  :items="liveGeo"
+                                  option-attribute="label"
+                                  value-attribute="value"
+                                  placeholder="Выбери гео"
+                              />
+                            </UFormField>
                             <UButton type="submit"
+                                     variant="ghost"
                                      size="lg"
                                      class="rounded-xl px-6">
                               Сохранить
                             </UButton>
                           </div>
+
+
                         </UForm>
                       </UCard>
 
@@ -531,7 +570,7 @@ onMounted(async () => {
                           <span class="text-sm text-gray-500">Всего: {{ live.length }}</span>
                         </div>
                         <UTable
-                            :data="live.live"
+                            :data="live"
                             :columns="liveColumns"
                         />
                       </UCard>
