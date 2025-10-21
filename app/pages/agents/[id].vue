@@ -9,11 +9,14 @@ import {format} from 'date-fns'
 import {UBadge, UButton, UDropdownMenu} from "#components";
 import {useCallStore} from "~~/stores/call.store";
 import type {TableColumn} from "#ui/components/Table.vue";
-import type {Calls} from '~~/stores/call.store'
-import type {CreateLivePayload, Live, UpdateLivePayload} from '~~/stores/live.store'
+import {type CreateLivePayload, type Live, type UpdateLivePayload} from '~~/stores/live.store'
 import {type SortableField, toggleSort} from "~/app_helpers/sort-helper";
 import {useLiveStore} from "~~/stores/live.store";
 import {useAgentStore} from "~~/stores/agent.store";
+import {LiveValidator} from "~~/validators/live.validator";
+import type {Messanger} from "@prisma/client";
+import {messangerValidator} from "~~/validators/messanger.validator";
+import {type CreateMessangerPayload, type UpdateMessangerPayload, useMessangerStore} from "~~/stores/messanger.store";
 
 
 // configs
@@ -47,21 +50,15 @@ type CallStatus =
     | 'No Rates Found for Account 23'
     | 'Temporarily unavailable';
 
-
-
-
-
-
-
-
-
-
 // reactive variables
 const startDate = ref<string | undefined>(undefined)
 const endDate = ref<string | undefined>(undefined)
 const activeTab = ref<'calls' | 'live' | 'messengers' | 'analytics'>('calls')
 const selectedStage = ref<number | null>(null)
 const showCreateLiveForm = ref<boolean>(false)
+const showUpdateLiveForm = ref<boolean>(false)
+const showCreateMessangerForm = ref<boolean>(false)
+const showUpdateMessangerForm = ref<boolean>(false)
 
 // hooks
 const route = useRoute()
@@ -98,12 +95,7 @@ function renderSortableHeader(field: SortableField, label: string) {
       )
 }
 
-
-
-
 // stores
-
-
 // -- agentStore
 const {data: agents, agentsList} = storeToRefs(useAgentStore())
 const {getAll: getAgents} = useAgentStore()
@@ -114,8 +106,13 @@ const {getAll: getCalls, remove: deleteCall} = useCallStore()
 const {data, count: callsCount, params: callsParams} = storeToRefs(useCallStore())
 
 // -- live store
-const {getAll: getLive, create:createLive, update:updateLive, remove: deleteLive} = useLiveStore()
+const {getAll: getLive, create: createLive, update: updateLive, remove: deleteLive} = useLiveStore()
 const {data: live, count: liveCount, params: liveParams} = storeToRefs(useLiveStore())
+
+// -- messanger store
+const {getAll: getMessangers, create: createMessanger, update: updateMessanger, remove: deleteMessanger} = useMessangerStore()
+const {data: messengers, count: messengersCount, params: messengersParams} = storeToRefs(useMessangerStore())
+
 
 // reactive variables
 const agent = ref<any | null>(null)
@@ -137,8 +134,8 @@ const tabs = [
   {
     label: 'Мессенджеры',
     icon: 'i-lucide-lock',
-    slot: 'messangers',
-    value: 'messengers'
+    slot: 'messanger',
+    value: 'messanger'
 
   },
   {
@@ -168,6 +165,16 @@ const liveGeo = [
   },
 
 ]
+const messangerTypes = [
+  {
+    label: 'WHATSAPP',
+    value: 'WHATSAPP',
+  },
+  {
+    label: 'TELEGRAM',
+    value: 'TELEGRAM',
+  },
+]
 
 // const page = ref(1)
 const file = ref<File | null>(null)
@@ -175,15 +182,32 @@ const liveCreateForm = reactive<CreateLivePayload>({
   agentId: agentId,
   geo: '',
   count: null,
-  date:'',
-})
-const liveUpdateForm = reactive<UpdateLivePayload>({
-  geo: '',
-  count: null,
-  date:'',
-  price:null,
+  date: '',
 })
 
+const messangerCreateForm = reactive<CreateMessangerPayload>({
+  agentId: agentId,
+  type: '',
+  count: null,
+  date: '',
+  price: null,
+  isRecovery: false,
+
+})
+const liveUpdateForm = reactive<UpdateLivePayload>({
+  id: null,
+  geo: '',
+  count: null,
+  date: '',
+})
+const messangerUpdateForm = reactive<UpdateMessangerPayload>({
+  id: null,
+  type: '',
+  count: null,
+  date: '',
+  price: null,
+  isRecovery: false,
+})
 
 // table actions
 function callActions(row: any) {
@@ -202,8 +226,9 @@ function callActions(row: any) {
     }
   ]]
 }
+
 function liveActions(row: any) {
-  const liveId = row.original?.id
+  const liveId:number = row.original?.id
   return [[
     {
       label: 'Удалить',
@@ -218,11 +243,47 @@ function liveActions(row: any) {
     },
     {
       label: 'Редактировать',
-      icon:'ix:edit-document',
+      icon: 'ix:edit-document',
+      onSelect: () => {
+        try {
+          liveUpdateForm.id = liveId
+          liveUpdateForm.geo = row.original.geo
+          liveUpdateForm.count = row.original.count
+          liveUpdateForm.date = row.original.date
+          showUpdateLiveForm.value = true
+        } catch (e) {
+          console.error(e)
+        }
+      }
+    },
+  ]]
+}
+function messangerActions(row: any) {
+  const messangerId:number = row.original?.id
+  return [[
+    {
+      label: 'Удалить',
+      icon: 'i-heroicons-trash-20-solid',
       onSelect: async () => {
         try {
-
-          await updateLive(liveId, liveCreateForm)
+          await deleteMessanger(messangerId)
+        } catch (e) {
+          console.error(e)
+        }
+      }
+    },
+    {
+      label: 'Редактировать',
+      icon: 'ix:edit-document',
+      onSelect: () => {
+        try {
+          messangerUpdateForm.id = messangerId
+          messangerUpdateForm.type = row.original.type
+          messangerUpdateForm.count = row.original.count
+          messangerUpdateForm.price = row.original.price
+          messangerUpdateForm.date = row.original.date
+          messangerUpdateForm.isRecovery = row.original.isRecovery
+          showUpdateMessangerForm.value = true
         } catch (e) {
           console.error(e)
         }
@@ -231,17 +292,15 @@ function liveActions(row: any) {
   ]]
 }
 
-
-
 // tables
-const callsColumns: TableColumn<Calls>[] = [
+const callsColumns: TableColumn<Messanger>[] = [
   {
     id: 'action',
     header: 'Действие',
     cell: ({row}) =>
         h(
             UDropdownMenu,
-            {content: {align: 'end'}, items: callActions(row)},
+            {content: {align: 'end'}, items: messangerActions(row)},
             () => h(UButton, {
               icon: 'i-lucide-ellipsis-vertical',
               variant: 'subtle',
@@ -346,13 +405,14 @@ const callsColumns: TableColumn<Calls>[] = [
   },
 ]
 const liveColumns = [
+  {id: 'id', header: 'ID', accessorKey: 'id'},
   {
     id: 'action',
     header: 'Действие',
-    cell: ({ row }) =>
+    cell: ({row}) =>
         h(
             UDropdownMenu,
-            { content: { align: 'end' }, items: liveActions(row) },
+            {content: {align: 'end'}, items: liveActions(row)},
             () => h(UButton, {
               icon: 'i-lucide-ellipsis-vertical',
               variant: 'subtle',
@@ -361,14 +421,14 @@ const liveColumns = [
             })
         )
   },
-  { id: 'count', header: 'Колл-во', accessorKey: 'count' },
+  {id: 'count', header: 'Колл-во', accessorKey: 'count'},
   {
     id: 'date',
     header: 'Дата выдачи',
     accessorFn: (row) => row?.date,
-    cell: ({ row }) => format(new Date(row.original.date), 'dd-MM'),
+    cell: ({row}) => format(new Date(row.original.date), 'dd-MM'),
   },
-  { id: 'geo', header: 'Гео', accessorKey: 'geo' },
+  {id: 'geo', header: 'Гео', accessorKey: 'geo'},
   {
     accessorKey: 'updatedAt',
     header: 'Загружен',
@@ -383,7 +443,47 @@ const liveColumns = [
     }
   },
 ]
-
+const messangerColumns = [
+  {id: 'id', header: 'ID', accessorKey: 'id'},
+  {
+    id: 'action',
+    header: 'Действие',
+    cell: ({row}) =>
+        h(
+            UDropdownMenu,
+            {content: {align: 'end'}, items: messangerActions(row)},
+            () => h(UButton, {
+              icon: 'i-lucide-ellipsis-vertical',
+              variant: 'subtle',
+              size: 'xl',
+              class: 'cursor-pointer'
+            })
+        )
+  },
+  {id: 'count', header: 'Колл-во', accessorKey: 'count'},
+  {
+    id: 'date',
+    header: 'Дата выдачи',
+    accessorFn: (row) => row?.date,
+    cell: ({row}) => format(new Date(row.original.date), 'dd-MM'),
+  },
+  {id: 'type', header: 'Тип', accessorKey: 'type'},
+  {id: 'isRecovery', header: 'Рекавери', accessorKey: 'isRecovery'},
+  {id: 'price', header: 'Цена', accessorKey: 'price'},
+  {
+    accessorKey: 'updatedAt',
+    header: 'Загружен',
+    cell: ({row}) => {
+      return new Date(row.getValue('updatedAt')).toLocaleString('en-US', {
+        day: 'numeric',
+        month: 'short',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false
+      })
+    }
+  },
+]
 
 // async functions
 async function uploadCalls() {
@@ -409,6 +509,7 @@ async function uploadCalls() {
   } finally {
   }
 }
+
 async function handleLiveCreate() {
   try {
     await createLive({...liveCreateForm})
@@ -417,13 +518,47 @@ async function handleLiveCreate() {
     console.error('Create agent failed:', e)
   }
 }
+async function handleMessangerCreate() {
+  try {
+    await createMessanger({...messangerCreateForm})
+    showCreateMessangerForm.value = false
+  } catch (e) {
+    console.error('Create messanger failed:', e)
+  }
+}
+
+async function handleLiveUpdate() {
+  if (!liveUpdateForm.id) return // на всякий случай
+  await updateLive(liveUpdateForm.id, {
+    count: liveUpdateForm.count ?? undefined,
+    geo: liveUpdateForm.geo ?? undefined,
+    date:  liveUpdateForm.date || undefined,
+  })
+  showUpdateLiveForm.value = false
+}
+
+async function handleMessangerUpdate() {
+  if (!messangerUpdateForm.id) return // на всякий случай
+  await updateMessanger(messangerUpdateForm.id, {
+    type:   messangerUpdateForm.type || undefined,
+    price:   messangerUpdateForm.price || undefined,
+    isRecovery:   messangerUpdateForm.isRecovery || undefined,
+    count: messangerUpdateForm.count ?? undefined,
+    date:  messangerUpdateForm.date || undefined,
+  })
+  showUpdateLiveForm.value = false
+}
 
 
 // computed
 
 // watchers
-watch(callsParams, ()=> {
+watch(callsParams, () => {
   getCalls()
+}, {deep: true})
+
+watch(messengersParams, () => {
+  getMessangers()
 }, {deep: true})
 
 
@@ -432,14 +567,13 @@ watch(liveParams, () => {
 }, {deep: true})
 
 
-
-
 // lifecycle hooks
 onMounted(async () => {
-  [liveParams.value.agentId, callsParams.value.agentId] = [agentId, agentId]
+  [liveParams.value.agentId, callsParams.value.agentId, messengersParams.value.agentId,] = [agentId, agentId, agentId]
   await getCalls()
   await getLive()
   await getAgents()
+  await getMessangers()
 })
 
 
@@ -507,7 +641,7 @@ onMounted(async () => {
                 />
               </Transition>
             </UCard>
-<!--            {{ data?.data }}-->
+            <!--            {{ data?.data }}-->
             <UPagination
                 class="flex justify-center mt-4"
                 size="xl"
@@ -516,80 +650,222 @@ onMounted(async () => {
           </template>
 
 
+          <template #live>
+            <UCard class="rounded-2xl shadow-sm">
+              <div class="flex justify-end">
+                <UButton
+                    :label="showCreateLiveForm ? 'Скрыть форму' : 'Добавить лайв'"
+                    :icon="showCreateLiveForm ? 'i-lucide-minus' : 'i-lucide-plus'"
+                    @click="showCreateLiveForm = !showCreateLiveForm"
+                />
+              </div>
 
-                    <template #live>
-                      <UCard class="rounded-2xl shadow-sm">
-                        <div class="flex justify-end">
-                          <UButton
-                              :label="showCreateLiveForm ? 'Скрыть форму' : 'Добавить лайв'"
-                              :icon="showCreateLiveForm ? 'i-lucide-minus' : 'i-lucide-plus'"
-                              @click="showCreateLiveForm = !showCreateLiveForm"
+              <UForm v-if="showCreateLiveForm"
+                     :state="liveCreateForm"
+                     @submit.prevent=handleLiveCreate
+              >
+                <div class="flex justify-start gap-4">
+                  <UFormField label="Дата" name="date">
+                    <UInput v-model="liveCreateForm.date" type="date"/>
+                  </UFormField>
 
-                          />
-                        </div>
+                  <UFormField label="Колл-во" name="count">
+                    <UInput v-model.number="liveCreateForm.count"
+                            type="number"
+                            min="0"/>
+                  </UFormField>
 
-                        <UForm v-if="showCreateLiveForm"
-                            :state="liveCreateForm"
-                            @submit.prevent=handleLiveCreate
-                        >
-                          <div class="flex justify-start gap-4">
-                            <UFormField label="Дата" name="date">
-                              <UInput v-model="liveCreateForm.date" type="date" />
-                            </UFormField>
-
-                            <UFormField label="Колл-во" name="count">
-                              <UInput v-model.number="liveCreateForm.count"
-                                      type="number"
-                                      min="0" />
-                            </UFormField>
-
-                            <UFormField label="Гео" name="geo">
-                              <USelect
-                                  v-model="liveCreateForm.geo"
-                                  :items="liveGeo"
-                                  option-attribute="label"
-                                  value-attribute="value"
-                                  placeholder="Выбери гео"
-                              />
-                            </UFormField>
-                            <UButton type="submit"
-                                     variant="ghost"
-                                     size="lg"
-                                     class="rounded-xl px-6">
-                              Сохранить
-                            </UButton>
-                          </div>
+                  <UFormField label="Гео" name="geo">
+                    <USelect
+                        v-model="liveCreateForm.geo"
+                        :items="liveGeo"
+                        option-attribute="label"
+                        value-attribute="value"
+                        placeholder="Выбери гео"
+                    />
+                  </UFormField>
+                  <UButton type="submit"
+                           variant="ghost"
+                           size="lg"
+                           class="rounded-xl px-6">
+                    Сохранить
+                  </UButton>
+                </div>
 
 
-                        </UForm>
-                      </UCard>
+              </UForm>
+              <UForm v-if="showUpdateLiveForm"
+                     :shema="LiveValidator"
+                     :state="liveUpdateForm"
+                     @submit="handleLiveUpdate"
+              >
+                <div class="flex justify-start gap-4">
+                  <UFormField label="Дата" name="date">
+                    <UInput v-model="liveUpdateForm.date" type="date"/>
+                  </UFormField>
 
-                      <UCard class="rounded-2xl shadow-sm mt-6">
-                        <div class="flex items-center justify-between mb-3">
-                          <h3 class="text-lg font-medium">История внесений</h3>
-                          <span class="text-sm text-gray-500">Всего: {{ live.length }}</span>
-                        </div>
-                        <UTable
-                            :data="live"
-                            :columns="liveColumns"
-                        />
-                      </UCard>
+                  <UFormField label="Колл-во" name="count">
+                    <UInput v-model.number="liveUpdateForm.count"
+                            type="number"
+                            min="0"/>
+                  </UFormField>
 
-                      <UPagination
-                          class="flex justify-center mt-4"
-                          size="xl"
-                          v-model:page="liveParams.page"
-                          :total="liveCount"/>
+                  <UFormField label="Гео" name="geo">
+                    <USelect
+                        v-model="liveUpdateForm.geo"
+                        :items="liveGeo"
+                        option-attribute="label"
+                        value-attribute="value"
+                        placeholder="Выбери гео"
+                    />
+                  </UFormField>
 
-                    </template>
+                  <UButton type="submit"
+                           variant="ghost"
+                           size="lg"
+                           class="rounded-xl px-6">
+                    Сохранить
+                  </UButton>
+                </div>
 
 
+              </UForm>
+            </UCard>
 
-<!--                    <template #messangers>-->
-<!--                      <UCard class="mt-10">-->
-<!--                        <UTable :data="messanger?.messanger"/>-->
-<!--                      </UCard>-->
-<!--                    </template>-->
+            <UCard class="rounded-2xl shadow-sm mt-6">
+              <div class="flex items-center justify-between mb-3">
+                <h3 class="text-lg font-medium">История внесений</h3>
+                <span class="text-sm text-gray-500">Всего: {{ live.length }}</span>
+              </div>
+              <UTable
+                  :data="live"
+                  :columns="liveColumns"
+              />
+            </UCard>
+
+            <UPagination
+                class="flex justify-center mt-4"
+                size="xl"
+                v-model:page="liveParams.page"
+                :total="liveCount"/>
+
+          </template>
+
+          <template #messanger>
+            <UCard class="rounded-2xl shadow-sm">
+              <div class="flex justify-end">
+                <UButton
+                    :label="showCreateMessangerForm ? 'Скрыть форму' : 'Добавить мессенджер'"
+                    :icon="showCreateMessangerForm ? 'i-lucide-minus' : 'i-lucide-plus'"
+                    @click="showCreateMessangerForm = !showCreateMessangerForm"
+                />
+              </div>
+
+              <UForm v-if="showCreateMessangerForm"
+                     :state="messangerCreateForm"
+                     @submit.prevent=handleMessangerCreate
+              >
+                <div class="flex justify-start gap-4">
+                  <UFormField label="Дата" name="date">
+                    <UInput v-model="messangerCreateForm.date" type="date"/>
+                  </UFormField>
+
+                  <UFormField label="Колл-во" name="count">
+                    <UInput v-model.number="messangerCreateForm.count"
+                            type="number"
+                            min="0"/>
+                  </UFormField>
+
+                  <UFormField label="Тип" name="type">
+                    <USelect
+                        v-model="messangerCreateForm.type"
+                        :items="messangerTypes"
+                        option-attribute="label"
+                        value-attribute="value"
+                        placeholder="Выбери тип"
+                    />
+                  </UFormField>
+                  <UFormField label="Рекавери" name="isRecovery">
+                    <USelect
+                        v-model="messangerCreateForm.isRecovery"
+                        :items="messangerTypes"
+                        option-attribute="label"
+                        value-attribute="value"
+                        placeholder="Рекавери"
+                    />
+                  </UFormField>
+                  <UButton type="submit"
+                           variant="ghost"
+                           size="lg"
+                           class="rounded-xl px-6">
+                    Сохранить
+                  </UButton>
+                </div>
+
+
+              </UForm>
+              <UForm v-if="showUpdateMessangerForm"
+                     :shema="messangerValidator"
+                     :state="messangerUpdateForm"
+                     @submit="handleMessangerUpdate"
+              >
+                <div class="flex justify-start gap-4">
+                  <UFormField label="Дата" name="date">
+                    <UInput v-model="messangerUpdateForm.date" type="date"/>
+                  </UFormField>
+
+                  <UFormField label="Колл-во" name="count">
+                    <UInput v-model.number="messangerUpdateForm.count"
+                            type="number"
+                            min="0"/>
+                  </UFormField>
+
+                  <UFormField label="Тип" name="geo">
+                    <USelect
+                        v-model="messangerUpdateForm.type"
+                        :items="messangerTypes"
+                        option-attribute="label"
+                        value-attribute="value"
+                        placeholder="Выбери тип"
+                    />
+                  </UFormField>
+
+                  <UButton type="submit"
+                           variant="ghost"
+                           size="lg"
+                           class="rounded-xl px-6">
+                    Сохранить
+                  </UButton>
+                </div>
+
+
+              </UForm>
+            </UCard>
+
+            <UCard class="rounded-2xl shadow-sm mt-6">
+              <div class="flex items-center justify-between mb-3">
+                <h3 class="text-lg font-medium">История внесений</h3>
+              </div>
+              <UTable
+                  :data="messengers"
+                  :columns="messangerColumns"
+              />
+            </UCard>
+
+            <UPagination
+                class="flex justify-center mt-4"
+                size="xl"
+                v-model:page="messengersParams.page"
+                :total="messengersCount"/>
+
+          </template>
+
+
+          <!--                    <template #messangers>-->
+          <!--                      <UCard class="mt-10">-->
+          <!--                        <UTable :data="messanger?.messanger"/>-->
+          <!--                      </UCard>-->
+          <!--                    </template>-->
           <template #analytics>
             <UCard>
               <div class="grid grid-cols-2 gap-4">
@@ -668,6 +944,7 @@ onMounted(async () => {
 .fade-slide-leave-active {
   transition: opacity .22s ease, transform .22s ease;
 }
+
 .fade-slide-enter-from,
 .fade-slide-leave-to {
   opacity: 0;

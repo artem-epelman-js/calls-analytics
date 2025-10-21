@@ -8,4 +8,5 @@ export const LiveValidator = z.object({
         .min(1,'Минимум 1 лид')
         .max(100, 'Максимум 100 лидов'),
     geo: z.enum(geo),
+    price: z.number().optional(),
 })

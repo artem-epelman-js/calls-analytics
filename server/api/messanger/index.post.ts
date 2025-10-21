@@ -18,6 +18,6 @@ export default defineEventHandler(async (event) => {
         return messanger
     } catch (err) {
         console.error(err)
-        throw createError({ statusCode: 400, statusMessage: err?.message })
+        throw createError({ statusCode: 400, statusMessage: err?.message})
     }
 })
