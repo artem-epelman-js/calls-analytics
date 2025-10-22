@@ -1,31 +1,44 @@
 import prisma from '../../../utils/prisma'
 import type { H3Event } from 'h3'
+import { QueryBuilder } from '~~/server/server_helpers/query-builder'
+import { Prisma } from '@prisma/client'
+
+
 
 export default defineEventHandler(async (event: H3Event) => {
     try {
-        const query = getQuery(event)
-        const agentId = query.agentId ? Number(query.agentId) : undefined
+        // 1) Реальные query из URL
+        const query = getQuery(event) as Record<string, any>
 
-        const whereClause = agentId ? { agentId } : {}
+        // 2) Разрешённые поля и поисковые
+        const searchFields = ['agent__stage']
+        const filterable   = ['isRecovery','type', 'createdAt']
 
-        const [rows, agg] = await Promise.all([
-            prisma.messanger.findMany({
-                where: whereClause,
-                orderBy: { createdAt: 'desc' },
-                include: {
-                    agent: { select: { id: true, stage: true } },
-                },
-            }),
-            prisma.messanger.aggregate({
-                where: whereClause,
-                _sum: { count: true },
-                _count: true,
-            }),
+        // 3) Собираем аргументы для Prisma
+        const qb = new QueryBuilder<Prisma.MessangerFindManyArgs>(
+            query,
+            searchFields,
+            filterable
+        )
+            // .useSomeFor([...]) // если будут 1:N фильтры
+            .filter()
+            .search()
+            .sort()
+            .paginate()
+
+        const args = qb.build()
+
+
+        const [messangers, count ] = await Promise.all([
+            prisma.messanger.findMany(args),
+            prisma.messanger.count({ where: args.where })
         ])
 
+
         return {
-            messanger: rows,                        // сами записи
-            totalMessanger: agg?._sum.count ?? 0,    // сумма count по указанному agentId
+            data: messangers,
+            count,
+            meta: {} as any, // добавишь позже, если нужно
         }
     } catch (error) {
         console.error('Error fetching messanger:', error)

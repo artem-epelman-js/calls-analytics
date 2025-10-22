@@ -11,13 +11,13 @@ export default defineEventHandler(async (event) => {
                 date: new Date(body.date),
                 count: body.count,
                 type: body.type, // должно быть "KZ", "KG", "UZ", "BY"
-                isRecovery: body.isRecovery || false,
+                isRecovery: body.isRecovery || false
             }
         })
 
         return messanger
     } catch (err) {
         console.error(err)
-        throw createError({ statusCode: 400, statusMessage: err?.message })
+        throw createError({ statusCode: 400, statusMessage: err?.message})
     }
 })
