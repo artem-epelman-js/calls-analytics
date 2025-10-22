@@ -26,7 +26,7 @@ export default defineEventHandler(async (event) => {
         return await prisma.messanger.update({
             where: { id },
             data,
-            select: { id: true, geo: true, count: true, date: true, updatedAt: true }
+            select: { id: true, count: true, date: true, updatedAt: true }
         })
     } catch (err: any) {
         if (err?.code === 'P2025') throw createError({ statusCode: 404, statusMessage: 'Messanger not found' })

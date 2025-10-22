@@ -1,4 +1,7 @@
 // helpers/sort.ts
+import {h} from "vue";
+import {UButton} from "#components";
+
 export type SortableField = 'date' | 'price' | 'duration'
 export type SortOrder = 'asc' | 'desc'
 
@@ -14,4 +17,24 @@ export function toggleSort<K extends SortableField>(
         // params.sortOrder = 'asc'
     }
     // НЕ трогаем params.page
+}
+
+export function renderSortableHeader(field: SortableField, label: string, params?: any) {
+    return () =>
+        h(
+            UButton,
+            {
+                variant: 'ghost',
+                size: 'xs',
+                class: 'px-2',
+                onClick: (e: MouseEvent) => {
+                    e.stopPropagation()
+                    toggleSort(params?.value as any, field)
+                }
+            },
+            () =>
+                `${label} ${
+                    params?.value?.sortBy === field && params?.value.sortOrder === 'asc' ? '↑' : '↓'
+                }`
+        )
 }

@@ -10,7 +10,7 @@ import {UBadge, UButton, UDropdownMenu} from "#components";
 import {useCallStore} from "~~/stores/call.store";
 import type {TableColumn} from "#ui/components/Table.vue";
 import {type CreateLivePayload, type Live, type UpdateLivePayload} from '~~/stores/live.store'
-import {type SortableField, toggleSort} from "~/app_helpers/sort-helper";
+import {renderSortableHeader, type SortableField, toggleSort} from "~/app_helpers/sort-helper";
 import {useLiveStore} from "~~/stores/live.store";
 import {useAgentStore} from "~~/stores/agent.store";
 import {LiveValidator} from "~~/validators/live.validator";
@@ -75,25 +75,7 @@ watch([startDate, endDate], ([s, e], [os, oe]) => {
 })
 
 // base functions
-function renderSortableHeader(field: SortableField, label: string) {
-  return () =>
-      h(
-          UButton,
-          {
-            variant: 'ghost',
-            size: 'xs',
-            class: 'px-2',
-            onClick: (e: MouseEvent) => {
-              e.stopPropagation()
-              toggleSort(callsParams.value as any, field)
-            }
-          },
-          () =>
-              `${label} ${
-                  callsParams.value.sortBy === field && callsParams.value.sortOrder === 'asc' ? '↑' : '↓'
-              }`
-      )
-}
+
 
 // stores
 // -- agentStore
@@ -111,7 +93,7 @@ const {data: live, count: liveCount, params: liveParams} = storeToRefs(useLiveSt
 
 // -- messanger store
 const {getAll: getMessangers, create: createMessanger, update: updateMessanger, remove: deleteMessanger} = useMessangerStore()
-const {data: messengers, count: messengersCount, params: messengersParams} = storeToRefs(useMessangerStore())
+const {data: messangers, count: messengersCount, params: messengersParams} = storeToRefs(useMessangerStore())
 
 
 // reactive variables
@@ -173,6 +155,16 @@ const messangerTypes = [
   {
     label: 'TELEGRAM',
     value: 'TELEGRAM',
+  },
+]
+const isRecovery = [
+  {
+    label: 'true',
+    value: true,
+  },
+  {
+    label: 'false',
+    value: false,
   },
 ]
 
@@ -300,7 +292,7 @@ const callsColumns: TableColumn<Messanger>[] = [
     cell: ({row}) =>
         h(
             UDropdownMenu,
-            {content: {align: 'end'}, items: messangerActions(row)},
+            {content: {align: 'end'}, items: callActions(row)},
             () => h(UButton, {
               icon: 'i-lucide-ellipsis-vertical',
               variant: 'subtle',
@@ -311,9 +303,10 @@ const callsColumns: TableColumn<Messanger>[] = [
   },
   {
     accessorKey: 'date',
-    header: renderSortableHeader('date', 'Дата'),
+    header: renderSortableHeader('date', 'Дата', callsParams),
 
     cell: ({row}) => {
+
       return new Date(row.getValue('date')).toLocaleString('en-US', {
         day: 'numeric',
         month: 'short',
@@ -330,7 +323,7 @@ const callsColumns: TableColumn<Messanger>[] = [
   },
   {
     accessorKey: 'duration',
-    header: renderSortableHeader('duration', 'Длительность'),
+    header: renderSortableHeader('duration', 'Длительность', callsParams),
     cell: ({row}) => {
       const sec = Number(row.getValue('duration') ?? 0)
       return new Date(sec * 1000).toISOString().slice(11, 19)
@@ -338,7 +331,7 @@ const callsColumns: TableColumn<Messanger>[] = [
   },
   {
     accessorKey: 'price',
-    header: renderSortableHeader('price', 'Цена'),
+    header: renderSortableHeader('price', 'Цена', callsParams),
 
     // cell: ({row}) => {
     //   const price = Number.parseFloat(row.getValue('price'))
@@ -353,7 +346,7 @@ const callsColumns: TableColumn<Messanger>[] = [
   },
   {
     accessorKey: 'status',
-    header: renderSortableHeader('status', 'Статус'),
+    header: renderSortableHeader('status', 'Статус', callsParams),
 
     cell: ({row}) => {
       const color = {
@@ -421,17 +414,31 @@ const liveColumns = [
             })
         )
   },
-  {id: 'count', header: 'Колл-во', accessorKey: 'count'},
-  {
-    id: 'date',
-    header: 'Дата выдачи',
-    accessorFn: (row) => row?.date,
-    cell: ({row}) => format(new Date(row.original.date), 'dd-MM'),
+  {id: 'count',
+    header: renderSortableHeader('count', 'Колличество', liveParams),
+    accessorKey: 'count'
   },
-  {id: 'geo', header: 'Гео', accessorKey: 'geo'},
+  {
+    accessorKey: 'date',
+    header: renderSortableHeader('date', 'Дата', liveParams),
+
+    cell: ({row}) => {
+      return new Date(row.getValue('date')).toLocaleString('en-US', {
+        day: 'numeric',
+        month: 'short',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false
+      })
+    }
+  },
+  {id: 'geo',
+    header: renderSortableHeader('geo', 'Гео', liveParams),
+    accessorKey: 'geo'
+  },
   {
     accessorKey: 'updatedAt',
-    header: 'Загружен',
+    header: renderSortableHeader('createdAt', 'Загружен', liveParams),
     cell: ({row}) => {
       return new Date(row.getValue('updatedAt')).toLocaleString('en-US', {
         day: 'numeric',
@@ -460,19 +467,29 @@ const messangerColumns = [
             })
         )
   },
-  {id: 'count', header: 'Колл-во', accessorKey: 'count'},
+  {id: 'count',  header: renderSortableHeader('count', 'Колличество', messengersParams), accessorKey: 'count'},
   {
-    id: 'date',
-    header: 'Дата выдачи',
-    accessorFn: (row) => row?.date,
-    cell: ({row}) => format(new Date(row.original.date), 'dd-MM'),
+    accessorKey: 'date',
+    header: renderSortableHeader('date', 'Дата', messengersParams),
+
+    cell: ({row}) => {
+      return new Date(row.getValue('date')).toLocaleString('en-US', {
+        day: 'numeric',
+        month: 'short',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false
+      })
+    }
   },
-  {id: 'type', header: 'Тип', accessorKey: 'type'},
-  {id: 'isRecovery', header: 'Рекавери', accessorKey: 'isRecovery'},
-  {id: 'price', header: 'Цена', accessorKey: 'price'},
+  {id: 'type',  header: renderSortableHeader('type', 'Тип', messengersParams), accessorKey: 'type'},
+  {id: 'isRecovery',     header: renderSortableHeader('isRecovery', 'Рекавери', messengersParams),
+    accessorKey: 'isRecovery'},
+  {id: 'price',     header: renderSortableHeader('price', 'Цена', messengersParams),
+    accessorKey: 'price'},
   {
     accessorKey: 'updatedAt',
-    header: 'Загружен',
+    header: renderSortableHeader('createdAt', 'Загружен', messengersParams),
     cell: ({row}) => {
       return new Date(row.getValue('updatedAt')).toLocaleString('en-US', {
         day: 'numeric',
@@ -520,7 +537,8 @@ async function handleLiveCreate() {
 }
 async function handleMessangerCreate() {
   try {
-    await createMessanger({...messangerCreateForm})
+    console.log(messangerCreateForm)
+    await createMessanger(messangerCreateForm)
     showCreateMessangerForm.value = false
   } catch (e) {
     console.error('Create messanger failed:', e)
@@ -646,7 +664,10 @@ onMounted(async () => {
                 class="flex justify-center mt-4"
                 size="xl"
                 v-model:page="callsParams.page"
-                :total="callsCount"/>
+                :total="callsCount"
+                :items-per-page="callsParams.take"
+
+            />
           </template>
 
 
@@ -726,6 +747,14 @@ onMounted(async () => {
                            class="rounded-xl px-6">
                     Сохранить
                   </UButton>
+                  <UButton type="button"
+                           variant="ghost"
+                           size="lg"
+                           @click="showUpdateLiveForm = false"
+                           color="error"
+                           class="rounded-xl px-6">
+                    Отмена
+                  </UButton>
                 </div>
 
 
@@ -747,8 +776,8 @@ onMounted(async () => {
                 class="flex justify-center mt-4"
                 size="xl"
                 v-model:page="liveParams.page"
+                :items-per-page="liveParams.limit"
                 :total="liveCount"/>
-
           </template>
 
           <template #messanger>
@@ -788,7 +817,7 @@ onMounted(async () => {
                   <UFormField label="Рекавери" name="isRecovery">
                     <USelect
                         v-model="messangerCreateForm.isRecovery"
-                        :items="messangerTypes"
+                        :items="isRecovery"
                         option-attribute="label"
                         value-attribute="value"
                         placeholder="Рекавери"
@@ -800,6 +829,7 @@ onMounted(async () => {
                            class="rounded-xl px-6">
                     Сохранить
                   </UButton>
+
                 </div>
 
 
@@ -836,6 +866,14 @@ onMounted(async () => {
                            class="rounded-xl px-6">
                     Сохранить
                   </UButton>
+                  <UButton type="button"
+                           variant="ghost"
+                           size="lg"
+                           @click="showUpdateMessangerForm = false"
+                           color="error"
+                           class="rounded-xl px-6">
+                    Отмена
+                  </UButton>
                 </div>
 
 
@@ -847,7 +885,7 @@ onMounted(async () => {
                 <h3 class="text-lg font-medium">История внесений</h3>
               </div>
               <UTable
-                  :data="messengers"
+                  :data="messangers"
                   :columns="messangerColumns"
               />
             </UCard>
@@ -856,6 +894,7 @@ onMounted(async () => {
                 class="flex justify-center mt-4"
                 size="xl"
                 v-model:page="messengersParams.page"
+                :items-per-page="messengersParams.limit"
                 :total="messengersCount"/>
 
           </template>

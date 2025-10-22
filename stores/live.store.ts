@@ -48,7 +48,7 @@ export type LiveResponse = {
 const q = {
     agentId: undefined as number | undefined,
     page: 1 as number,
-    take: 10 as number,
+    limit: 2 as number,
     sortBy: 'geo' as string,
     count: undefined as number | undefined,
     price: undefined as number | undefined,
@@ -73,7 +73,7 @@ export const useLiveStore = defineStore('live', () => {
         return Object.assign(params, q)
     }
 
-    async function create(payload: CreateMessangerPayload) {
+    async function create(payload: CreateLivePayload) {
         loading.value = true
         error.value = null
         try {
@@ -139,7 +139,7 @@ export const useLiveStore = defineStore('live', () => {
             console.error(e)
             error.value = e?.message ?? 'Failed to create agent'
             toast.add({
-                title: 'Не удалось обновить пользователя',
+                title: 'Не удалось обновить запись',
                 color: 'error',
                 icon: "ix:error-filled"
             })
@@ -149,8 +149,18 @@ export const useLiveStore = defineStore('live', () => {
     async function remove(id: any) {
         try {
             await $fetch(`/api/live/${id}`, {method: 'DELETE'})
+            toast.add({
+                title: `Запись №${id} удалена!`,
+                color: 'secondary',
+                icon: "ix:replace"
+            })
             await getAll()
         } catch (e) {
+            toast.add({
+                title: `Не удалось удалить запись №${id}!`,
+                color: 'error',
+                icon: "ix:replace"
+            })
             console.error(e)
         }
     }

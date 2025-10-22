@@ -50,7 +50,7 @@ export type MessangerResponse = {
 const q = {
     agentId: undefined as number | undefined,
     page: 1 as number,
-    take: 10 as number,
+    limit: 2 as number,
     sortBy: 'type' as string,
     count: undefined as number | undefined,
     price: undefined as number | undefined,
@@ -151,8 +151,18 @@ export const useMessangerStore = defineStore('messanger', () => {
     async function remove(id: any) {
         try {
             await $fetch(`/api/messanger/${id}`, {method: 'DELETE'})
+            toast.add({
+                title: `Запись №${id} удалена!`,
+                color: 'secondary',
+                icon: "ix:replace"
+            })
             await getAll()
         } catch (e) {
+            toast.add({
+                title: `Не удалось удалить запись №${id}!`,
+                color: 'error',
+                icon: "ix:replace"
+            })
             console.error(e)
         }
     }

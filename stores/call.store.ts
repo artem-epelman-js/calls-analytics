@@ -35,7 +35,7 @@ export type CallsResponse = {
 
 const q = {
     page: 1 as number,
-    take: 10 as number,
+    limit: 10 as number,
     sortBy: 'duration' as string,
     duration: undefined as number | undefined,
     price: undefined as number | undefined,
