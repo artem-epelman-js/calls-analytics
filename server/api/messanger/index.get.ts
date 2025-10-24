@@ -12,7 +12,7 @@ export default defineEventHandler(async (event: H3Event) => {
 
         // 2) Разрешённые поля и поисковые
         const searchFields = ['agent__stage']
-        const filterable   = ['isRecovery','type', 'createdAt']
+        const filterable   = ['isRecovery','type', 'createdAt', 'agentId']
 
         // 3) Собираем аргументы для Prisma
         const qb = new QueryBuilder<Prisma.MessangerFindManyArgs>(
