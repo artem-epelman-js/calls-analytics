@@ -51,9 +51,7 @@ type CallStatus =
     | 'Temporarily unavailable';
 
 // reactive variables
-const startDate = ref<string | undefined>(undefined)
-const endDate = ref<string | undefined>(undefined)
-const activeTab = ref<'calls' | 'live' | 'messengers' | 'analytics'>('calls')
+
 const selectedStage = ref<number | null>(null)
 const showCreateLiveForm = ref<boolean>(false)
 const showUpdateLiveForm = ref<boolean>(false)
@@ -84,8 +82,6 @@ const {getAll: getAgents} = useAgentStore()
 
 
 // -- call store
-const {getAll: getCalls, remove: deleteCall} = useCallStore()
-const {data, count: callsCount, params: callsParams} = storeToRefs(useCallStore())
 
 // -- live store
 const {getAll: getLive, create: createLive, update: updateLive, remove: deleteLive} = useLiveStore()
@@ -100,34 +96,6 @@ const {data: messangers, count: messengersCount, params: messengersParams} = sto
 const agent = ref<any | null>(null)
 
 // base const
-const tabs = [
-  {
-    label: 'Звонки',
-    icon: 'i-lucide-user',
-    slot: 'calls',
-    value: 'calls'
-  },
-  {
-    label: 'Лайв',
-    icon: 'i-lucide-lock',
-    slot: 'live',
-    value: 'live'
-  },
-  {
-    label: 'Мессенджеры',
-    icon: 'i-lucide-lock',
-    slot: 'messanger',
-    value: 'messanger'
-
-  },
-  {
-    label: 'Аналитика',
-    icon: 'i-lucide-lock',
-    slot: 'analytics',
-    value: 'analytics'
-
-  }
-]
 const liveGeo = [
   {
     label: 'KZ',
@@ -202,22 +170,6 @@ const messangerUpdateForm = reactive<UpdateMessangerPayload>({
 })
 
 // table actions
-function callActions(row: any) {
-  const callId = row.original?.id
-  return [[
-    {
-      label: 'Удалить',
-      icon: 'i-heroicons-trash-20-solid',
-      onSelect: async () => {
-        try {
-          await deleteCall(callId)
-        } catch (e) {
-          console.error(e)
-        }
-      }
-    }
-  ]]
-}
 
 function liveActions(row: any) {
   const liveId:number = row.original?.id
@@ -285,118 +237,6 @@ function messangerActions(row: any) {
 }
 
 // tables
-const callsColumns: TableColumn<Messanger>[] = [
-  {
-    id: 'action',
-    header: 'Действие',
-    cell: ({row}) =>
-        h(
-            UDropdownMenu,
-            {content: {align: 'end'}, items: callActions(row)},
-            () => h(UButton, {
-              icon: 'i-lucide-ellipsis-vertical',
-              variant: 'subtle',
-              size: 'xl',
-              class: 'cursor-pointer'
-            })
-        )
-  },
-  {
-    accessorKey: 'date',
-    header: renderSortableHeader('date', 'Дата', callsParams),
-
-    cell: ({row}) => {
-
-      return new Date(row.getValue('date')).toLocaleString('en-US', {
-        day: 'numeric',
-        month: 'short',
-        hour: '2-digit',
-        minute: '2-digit',
-        hour12: false
-      })
-    }
-  },
-  {
-    accessorKey: 'phone',
-    header: 'Номер',
-
-  },
-  {
-    accessorKey: 'duration',
-    header: renderSortableHeader('duration', 'Длительность', callsParams),
-    cell: ({row}) => {
-      const sec = Number(row.getValue('duration') ?? 0)
-      return new Date(sec * 1000).toISOString().slice(11, 19)
-    }
-  },
-  {
-    accessorKey: 'price',
-    header: renderSortableHeader('price', 'Цена', callsParams),
-
-    // cell: ({row}) => {
-    //   const price = Number.parseFloat(row.getValue('price'))
-    //
-    //   const formatted = new Intl.NumberFormat('en-US', {
-    //     style: 'currency',
-    //     currency: 'EUR'
-    //   }).format(price)
-    //
-    //   return h('div', {class: 'text-right font-medium'}, formatted)
-    // }
-  },
-  {
-    accessorKey: 'status',
-    header: renderSortableHeader('status', 'Статус', callsParams),
-
-    cell: ({row}) => {
-      const color = {
-        'Вызов завершен': 'success' as const,
-        'Занято': 'success' as const,
-        'Временно недоступен': 'secondary' as const,
-        'Сервис недоступен': 'secondary' as const,
-        'Таймаут запроса': 'secondary' as const,
-        'Отклонить': 'warning' as const,
-        'Отменено': 'warning' as const,
-        'Disconnected': 'error' as const,
-        'Forbidden': 'error' as const,
-        'Internal Server Error': 'error' as const,
-        'No Rates Found for Account 23': 'error' as const,
-        'Неверный набор или несуществующий номер': 'error' as const,
-        'Temporarily unavailable': 'neutral' as const,
-      }[row.getValue('status') as string]
-
-      return h(UBadge, {class: 'capitalize', variant: 'subtle', color}, () => // todo дописать в конец color
-          row.getValue('status')
-      )
-    }
-  },
-  {
-    accessorKey: 'createdAt',
-    header: 'Изменен',
-    cell: ({row}) => {
-      return new Date(row.getValue('createdAt')).toLocaleString('en-US', {
-        day: 'numeric',
-        month: 'short',
-        hour: '2-digit',
-        minute: '2-digit',
-        hour12: false
-      })
-    }
-  },
-  {
-    accessorKey: 'updatedAt',
-    header: 'Загружен',
-    cell: ({row}) => {
-      return new Date(row.getValue('updatedAt')).toLocaleString('en-US', {
-        day: 'numeric',
-        month: 'short',
-        hour: '2-digit',
-        minute: '2-digit',
-        hour12: false
-      })
-    }
-  },
-]
 const liveColumns = [
   {id: 'id', header: 'ID', accessorKey: 'id'},
   {
@@ -544,7 +384,7 @@ async function handleMessangerCreate() {
     console.error('Create messanger failed:', e)
   }
 }
-
+  
 async function handleLiveUpdate() {
   if (!liveUpdateForm.id) return // на всякий случай
   await updateLive(liveUpdateForm.id, {
@@ -571,9 +411,7 @@ async function handleMessangerUpdate() {
 // computed
 
 // watchers
-watch(callsParams, () => {
-  getCalls()
-}, {deep: true})
+
 
 watch(messengersParams, () => {
   getMessangers()
@@ -587,44 +425,22 @@ watch(liveParams, () => {
 
 // lifecycle hooks
 onMounted(async () => {
-  [liveParams.value.agentId, callsParams.value.agentId, messengersParams.value.agentId,] = [agentId, agentId, agentId]
-  await getCalls()
-  await getLive()
-  await getAgents()
-  await getMessangers()
+  liveParams.value.agentId = agentId
+
+  messengersParams.value.agentId = agentId
+
+  await Promise.all([getCalls(), getLive(), getAgents(), getMessangers()])
 })
 
 
 </script>
 <template>
   <UContainer class="flex flex-col gap-6">
-    <UCard>
-      <div class="flex items-center justify-between gap-4 border-b pb-4">
-        <div class="flex items-center gap-2">
-
-        </div>
-      </div>
-      <div class="grid grid-cols-3 gap-6 pt-4">
-        <div>
-          <p class="text-sm font-medium text-gray-500 dark:text-gray-400">Номер</p>
-          <p class="mt-2 text-base font-medium">{{ agent?.id }}</p>
-        </div>
-        <div>
-          <p class="text-sm font-medium text-gray-500 dark:text-gray-400">Статус</p>
-          <div class="flex items-center gap-2 mt-2">
-            <UBadge :color="agent?.isActive ? 'primary' : 'error'" variant="subtle">
-              {{ agent?.isActive ? 'Активен' : 'Неактивен' }}
-            </UBadge>
-          </div>
-        </div>
-        <div v-if="agent?.createdAt">
-          <p class="text-sm font-medium text-gray-500 dark:text-gray-400">Добавлен</p>
-          <p class="mt-2 text-base font-medium">
-            {{ format(new Date(agent?.createdAt || ''), 'dd.MM.yy') }}
-          </p>
-        </div>
-      </div>
-    </UCard>
+    <agent-header
+        v-if="agentId"
+        :agent="agent"
+        :agentId="agentId"
+    />
     <UCard>
       <div class="grid grid-cols-1 gap-6">
         <div class="flex justify-between w-150">

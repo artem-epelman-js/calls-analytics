@@ -2,7 +2,7 @@
 import {h} from "vue";
 import {UButton} from "#components";
 
-export type SortableField = 'date' | 'price' | 'duration'
+export type SortableField = 'date' | 'price' | 'duration'|'status'
 export type SortOrder = 'asc' | 'desc'
 
 export function toggleSort<K extends SortableField>(

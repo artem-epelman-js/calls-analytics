@@ -1,22 +1,7 @@
 // stores/agent.store.ts
 import {defineStore} from 'pinia'
 import {reactive, ref} from 'vue'
-
-
-
-
-
-export type Calls = {
-    id: number
-    agentId: number
-    date: string
-    phone: string
-    duration: number
-    price: number
-    status: string
-    createdAt: string
-    updatedAt: string
-}
+import type {Calls} from "@prisma/client";
 
 export type CallsResponse = {
     data: Calls[]

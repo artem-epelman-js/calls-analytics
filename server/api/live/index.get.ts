@@ -8,7 +8,7 @@ export default defineEventHandler(async (event: H3Event) => {
         const query = getQuery(event) as Record<string, any>
         // 2) Разрешённые поля и поисковые
         const searchFields = ['geo']
-        const filterable   = ['date', 'geo', 'count', ]
+        const filterable   = ['date', 'geo', 'count', 'agentId']
         // 3) Собираем аргументы для Prisma
         const qb = new QueryBuilder<Prisma.LiveFindManyArgs>(
             query,
