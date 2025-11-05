@@ -3,31 +3,29 @@ import { reactive, ref, computed, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { format } from 'date-fns'
 import { useToast } from '#imports'
-import { LiveValidator } from '~~/validators/live.validator'
-import { useLiveStore, type Live, type CreateLivePayload } from '~~/stores/live.store'
+import { messangerValidator as MessangerValidator } from '~~/validators/messanger.validator'
+import { useMessangerStore, type Messanger, type CreateMessangerPayload } from '~~/stores/messanger.store'
 
-type Geo = 'KZ' | 'KG' | 'BY' | 'UZ'
+type MessangerType = 'TELEGRAM' | 'WHATSAPP'
 
 /** Внешнее управление только видимостью */
 const open = defineModel<boolean>('open', { default: false })
 
-/** Проп со справочником гео (опционально) */
-const props = defineProps<{ geoItems?: Array<{ label: string; value: Geo }> }>()
+/** Проп со справочником типов (опционально) */
+const props = defineProps<{ typeItems?: Array<{ label: string; value: MessangerType }> }>()
 
-/** Дефолтный справочник, если geoItems не передан */
-const fallbackGeo: Array<{ label: string; value: Geo }> = [
-  { label: 'KZ', value: 'KZ' },
-  { label: 'KG', value: 'KG' },
-  { label: 'BY', value: 'BY' },
-  { label: 'UZ', value: 'UZ' }
+/** Дефолтный справочник, если typeItems не передан */
+const fallbackTypeItems: Array<{ label: string; value: MessangerType }> = [
+  { label: 'Telegram', value: 'TELEGRAM' },
+  { label: 'WhatsApp', value: 'WHATSAPP' }
 ]
-const geoItems = computed(() => props.geoItems?.length ? props.geoItems : fallbackGeo)
+const typeItems = computed(() => (props.typeItems?.length ? props.typeItems : fallbackTypeItems))
 
 /** Контекст */
 const route = useRoute()
 const agentId = Number(route.params.id ?? NaN)
 const t = useToast()
-const { create, update, getAll } = useLiveStore()
+const { create, update, getAll } = useMessangerStore()
 
 /** Режим формы */
 type Mode = 'create' | 'edit'
@@ -36,39 +34,50 @@ const editingId = ref<number | null>(null)
 
 /** Форма */
 const today = format(new Date(), 'yyyy-MM-dd')
-const form = reactive<CreateLivePayload>({
+const form = reactive<CreateMessangerPayload>({
   agentId: Number.isFinite(agentId) ? agentId : (undefined as unknown as number),
   date: today,
-  geo: '' as unknown as Geo,
-  count: null
+  type: '' as unknown as MessangerType,
+  count: null as unknown as number | null,
+  price: 10 as number | null,       // по умолчанию 10, можно оставить null если хочешь не отправлять
+  isRecovery: false
 })
 
 /** Валидность */
 const isValid = computed(() =>
     Number.isFinite(form.agentId) && form.agentId! > 0 &&
-    !!form.date && !!form.geo && (form.count == null || form.count >= 0)
+    !!form.date && !!form.type &&
+    (form.count == null || form.count >= 0) &&
+    (form.price == null || form.price >= 0)
 )
 
 /** Сброс */
 function resetForm(keepAgent = true) {
   form.agentId = keepAgent && Number.isFinite(agentId) ? agentId : (undefined as unknown as number)
   form.date = today
-  form.geo = '' as unknown as Geo
+  form.type = '' as unknown as MessangerType
   form.count = null
+  form.price = 10
+  form.isRecovery = false
   editingId.value = null
   mode.value = 'create'
 }
 
 /** Открыть форму для редактирования записи */
-function edit(rec: Live) {
+function edit(rec: Messanger) {
   mode.value = 'edit'
   editingId.value = rec.id
   form.agentId = rec.agentId
+
   // input[type=date] хочет yyyy-MM-dd
   const iso = typeof rec.date === 'string' ? rec.date : new Date(rec.date).toISOString()
   form.date = iso.slice(0, 10)
-  form.geo = (rec.geo || '') as Geo
+
+  form.type = rec.type as MessangerType
   form.count = (rec.count ?? null) as any
+  form.price = (rec.price ?? 10) as any
+  form.isRecovery = !!rec.isRecovery
+
   open.value = true
 }
 
@@ -82,25 +91,35 @@ async function onSubmit() {
   isSubmitting.value = true
   try {
     if (mode.value === 'create') {
-      // обычное создание
-      await create({ ...form })
+      // Создание
+      // Отправляем только необходимые поля; price необязателен на бэке
+      const payload: CreateMessangerPayload = {
+        agentId: form.agentId!,
+        date: form.date,
+        type: form.type,
+        count: form.count ?? 0,
+        isRecovery: !!form.isRecovery,
+        // если хочешь не отправлять price при null, можно условно добавить
+        ...(form.price != null ? { price: form.price } : {})
+      }
+      await create(payload)
       resetForm(true)
-      // по желанию — закрывать после создания:
-      // open.value = false
+      // open.value = false // если надо закрывать после создания
     } else {
-      // редактирование
+      // Редактирование
       if (!editingId.value) return
-      const payload: { geo?: string; count?: number; date?: string } = {}
-      if (form.geo) payload.geo = form.geo
+      const payload: { type?: MessangerType; isRecovery?: boolean; count?: number; date?: string; price?: number } = {}
+      if (form.type) payload.type = form.type
       if (form.count != null) payload.count = form.count
       if (form.date) payload.date = form.date
+      if (form.price != null) payload.price = form.price
+      payload.isRecovery = !!form.isRecovery
+
       await update(editingId.value, payload)
       open.value = false
       resetForm(true)
     }
-
   } catch (e: any) {
-    // 409 — дубликат (agentId, geo, date)
     const message = e?.data?.statusMessage || e?.message || 'Ошибка'
     t.add({ title: 'Не удалось сохранить', description: message, color: 'error' })
   } finally {
@@ -111,11 +130,11 @@ async function onSubmit() {
 
 function onCancel() {
   open.value = false
-  // если нужно — не сбрасываем, чтобы пользователь мог вернуться
 }
 
 /** expose для родителя */
 defineExpose({ edit })
+
 onMounted(() => {
   if (!Number.isFinite(agentId)) {
     t.add({ title: 'Внимание', description: 'agentId из маршрута не определён', color: 'warning' })
@@ -127,14 +146,14 @@ onMounted(() => {
   <UCard v-if="open" class="rounded-2xl shadow-sm">
     <div class="flex items-center justify-between mb-2">
       <h3 class="text-lg font-semibold">
-        {{ mode === 'create' ? 'Добавить Live' : `Редактировать запись #${editingId}` }}
+        {{ mode === 'create' ? 'Добавить Messanger' : `Редактировать запись #${editingId}` }}
       </h3>
       <UButton variant="ghost" color="error" size="sm" @click="onCancel">
         Закрыть
       </UButton>
     </div>
 
-    <UForm :state="form" :schema="LiveValidator" @submit.prevent="onSubmit">
+    <UForm :state="form" :schema="MessangerValidator" @submit.prevent="onSubmit">
       <div class="flex flex-wrap items-end gap-4">
         <UFormField label="Дата" name="date">
           <UInput v-model="form.date" type="date" />
@@ -144,14 +163,24 @@ onMounted(() => {
           <UInput v-model.number="form.count" type="number" min="0" />
         </UFormField>
 
-        <UFormField label="Гео" name="geo">
+        <UFormField label="Цена" name="price" hint="Если пусто — на бэке возьмётся дефолт 10">
+          <UInput v-model.number="form.price" type="number" min="0" />
+        </UFormField>
+
+        <UFormField label="Тип" name="type">
           <USelect
-              v-model="form.geo"
-              :items="geoItems"
+              v-model="form.type"
+              :items="typeItems"
               option-attribute="label"
               value-attribute="value"
-              placeholder="Выбери гео"
+              placeholder="Выбери тип"
           />
+        </UFormField>
+
+        <UFormField label="Recovery" name="isRecovery">
+          <div class="h-10 flex items-center">
+            <USwitch v-model="form.isRecovery" />
+          </div>
         </UFormField>
 
         <div class="flex gap-2">

@@ -35,16 +35,15 @@ model Calls {
 
 model Live {
   id        Int      @id @default(autoincrement())
-  agentId   Int?
+  agentId   Int
+  geo       String
   date      DateTime
-  count     Int
-  price     Int      @default(17)
-  geo       geo      @default(KZ)
+  count     Int?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   agent     Agent?   @relation(fields: [agentId], references: [id])
 
-  @@unique([agentId, geo, date])
+  @@unique([agentId, geo, date], name: "agentId_geo_date")
 }
 
 model Messanger {
