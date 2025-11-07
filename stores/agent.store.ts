@@ -1,6 +1,7 @@
 // stores/agent.store.ts
 import {defineStore} from 'pinia'
 import {computed, ref} from 'vue'
+import {useRoute} from "#vue-router";
 
 export type Agent = {
     id: number
@@ -24,6 +25,9 @@ export type AgentsResponse = {
         sortOrder: 'asc' | 'desc'
     }
 }
+
+
+
 
 export type CreateAgentPayload = {
     stage: string

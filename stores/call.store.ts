@@ -18,6 +18,21 @@ export type CallsResponse = {
     }
 }
 
+export type CallStatus =
+    | 'Вызов завершен'
+    | 'Занято'
+    | 'Временно недоступен'
+    | 'Неверный набор или несуществующий номер'
+    | 'Отклонить'
+    | 'Отменено'
+    | 'Сервис недоступен'
+    | 'Таймаут запроса'
+    | 'Disconnected'
+    | 'Forbidden'
+    | 'Internal Server Error'
+    | 'No Rates Found for Account 23'
+    | 'Temporarily unavailable';
+
 const q = {
     page: 1 as number,
     limit: 10 as number,
