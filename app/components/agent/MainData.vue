@@ -72,40 +72,7 @@ const tabs = [
               />
             </div>
 
-            <UForm v-if="showCreateLiveForm"
-                   :state="liveCreateForm"
-                   @submit.prevent=handleLiveCreate
-            >
-              <div class="flex justify-start gap-4">
-                <UFormField label="Дата" name="date">
-                  <UInput v-model="liveCreateForm.date" type="date"/>
-                </UFormField>
-
-                <UFormField label="Колл-во" name="count">
-                  <UInput v-model.number="liveCreateForm.count"
-                          type="number"
-                          min="0"/>
-                </UFormField>
-
-                <UFormField label="Гео" name="geo">
-                  <USelect
-                      v-model="liveCreateForm.geo"
-                      :items="liveGeo"
-                      option-attribute="label"
-                      value-attribute="value"
-                      placeholder="Выбери гео"
-                  />
-                </UFormField>
-                <UButton type="submit"
-                         variant="ghost"
-                         size="lg"
-                         class="rounded-xl px-6">
-                  Сохранить
-                </UButton>
-              </div>
-
-
-            </UForm>
+            // live form was here
             <UForm v-if="showUpdateLiveForm"
                    :shema="LiveValidator"
                    :state="liveUpdateForm"
