@@ -17,7 +17,7 @@ export type Live = {
 export type CreateLivePayload = {
     agentId: number
     geo: string
-    count: number|null
+    count: number | null
     date:string
 }
 

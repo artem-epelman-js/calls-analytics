@@ -1,184 +1,88 @@
 <script setup lang="ts">
-import { reactive, ref, computed, onMounted } from 'vue'
-import { useRoute } from 'vue-router'
-import { format } from 'date-fns'
-import { useToast } from '#imports'
-import { LiveValidator } from '~~/validators/live.validator'
-import { useLiveStore, type Live, type CreateLivePayload } from '~~/stores/live.store'
+import {storeToRefs} from "pinia";
+import {type CreateLivePayload, type UpdateLivePayload, useLiveStore} from "~~/stores/live.store";
+import {reactive} from "vue";
+import {useRoute} from "#vue-router";
 
-type Geo = 'KZ' | 'KG' | 'BY' | 'UZ'
+const showCreateLiveForm = ref<boolean>(false)
+const showUpdateLiveForm = ref<boolean>(false)
 
-/** Внешнее управление только видимостью */
-const open = defineModel<boolean>('open', { default: false })
+const {create, update, getAll} = useLiveStore()
 
-/** Проп со справочником гео (опционально) */
-const props = defineProps<{ geoItems?: Array<{ label: string; value: Geo }> }>()
+const {data, params} = storeToRefs(useLiveStore())
 
-/** Дефолтный справочник, если geoItems не передан */
-const fallbackGeo: Array<{ label: string; value: Geo }> = [
-  { label: 'KZ', value: 'KZ' },
-  { label: 'KG', value: 'KG' },
-  { label: 'BY', value: 'BY' },
-  { label: 'UZ', value: 'UZ' }
-]
-const geoItems = computed(() => props.geoItems?.length ? props.geoItems : fallbackGeo)
-
-/** Контекст */
 const route = useRoute()
-const agentId = Number(route.params.id ?? NaN)
-const t = useToast()
-const { create, update, getAll } = useLiveStore()
+const agentId = Number(route.params.id as string)
 
-/** Режим формы */
-type Mode = 'create' | 'edit'
-const mode = ref<Mode>('create')
-const editingId = ref<number | null>(null)
+const emit = defineEmits([
+    'createLive',
+    'updateLive'
+])
 
-/** Форма */
-const today = format(new Date(), 'yyyy-MM-dd')
-const form = reactive<CreateLivePayload>({
-  agentId: Number.isFinite(agentId) ? agentId : (undefined as unknown as number),
-  date: today,
-  geo: '' as unknown as Geo,
-  count: null
+
+const liveCreateForm = reactive<CreateLivePayload>({
+  agentId: agentId,
+  geo: '',
+  count: null,
+  date: '',
 })
 
-/** Валидность */
-const isValid = computed(() =>
-    Number.isFinite(form.agentId) && form.agentId! > 0 &&
-    !!form.date && !!form.geo && (form.count == null || form.count >= 0)
-)
+const liveUpdateForm = reactive<UpdateLivePayload>({
+  id: null,
+  geo: '',
+  count: null,
+  date: '',
+})
 
-/** Сброс */
-function resetForm(keepAgent = true) {
-  form.agentId = keepAgent && Number.isFinite(agentId) ? agentId : (undefined as unknown as number)
-  form.date = today
-  form.geo = '' as unknown as Geo
-  form.count = null
-  editingId.value = null
-  mode.value = 'create'
-}
 
-/** Открыть форму для редактирования записи */
-function edit(rec: Live) {
-  mode.value = 'edit'
-  editingId.value = rec.id
-  form.agentId = rec.agentId
-  // input[type=date] хочет yyyy-MM-dd
-  const iso = typeof rec.date === 'string' ? rec.date : new Date(rec.date).toISOString()
-  form.date = iso.slice(0, 10)
-  form.geo = (rec.geo || '') as Geo
-  form.count = (rec.count ?? null) as any
-  open.value = true
-}
+const liveGeo = [
+  {
+    label: 'KZ',
+    value: 'KZ',
+  },
+  {
+    label: 'KG',
+    value: 'KG',
+  },
+  {
+    label: 'BY',
+    value: 'BY',
+  },
+  {
+    label: 'UZ',
+    value: 'UZ',
+  },
+]
 
-/** Сабмит */
-const isSubmitting = ref(false)
-async function onSubmit() {
-  if (!isValid.value) {
-    t.add({ title: 'Форма неполная', description: 'Заполни обязательные поля', color: 'warning' })
-    return
-  }
-  isSubmitting.value = true
+const handleCreate = async () => {
   try {
-    if (mode.value === 'create') {
-      // обычное создание
-      await create({ ...form })
-      resetForm(true)
-      // по желанию — закрывать после создания:
-      // open.value = false
-    } else {
-      // редактирование
-      if (!editingId.value) return
-      const payload: { geo?: string; count?: number; date?: string } = {}
-      if (form.geo) payload.geo = form.geo
-      if (form.count != null) payload.count = form.count
-      if (form.date) payload.date = form.date
-      await update(editingId.value, payload)
-      open.value = false
-      resetForm(true)
-    }
+    await create({...liveCreateForm})
+  } catch (e) {
+    console.log(e)
+  }
+  finally {
+    showCreateLiveForm.value = false
+  }
+}
 
-  } catch (e: any) {
-    // 409 — дубликат (agentId, geo, date)
-    const message = e?.data?.statusMessage || e?.message || 'Ошибка'
-    t.add({ title: 'Не удалось сохранить', description: message, color: 'error' })
+async function handleUpdate() {
+  if (!liveUpdateForm.id) return
+  try {
+    await update(liveUpdateForm.id, {
+      count: liveUpdateForm.count ?? undefined,
+      geo: liveUpdateForm.geo,
+      date: liveUpdateForm.date,
+    })
+  } catch (e) {
+    console.log(e)
   } finally {
-    await getAll()
-    isSubmitting.value = false
+    showCreateLiveForm.value = false
   }
 }
 
-function onCancel() {
-  open.value = false
-  // если нужно — не сбрасываем, чтобы пользователь мог вернуться
-}
-
-/** expose для родителя */
-defineExpose({ edit })
-onMounted(() => {
-  if (!Number.isFinite(agentId)) {
-    t.add({ title: 'Внимание', description: 'agentId из маршрута не определён', color: 'warning' })
-  }
-})
 </script>
 
+
 <template>
-  <UCard v-if="open" class="rounded-2xl shadow-sm">
-    <div class="flex items-center justify-between mb-2">
-      <h3 class="text-lg font-semibold">
-        {{ mode === 'create' ? 'Добавить Live' : `Редактировать запись #${editingId}` }}
-      </h3>
-      <UButton variant="ghost" color="error" size="sm" @click="onCancel">
-        Закрыть
-      </UButton>
-    </div>
 
-    <UForm :state="form" :schema="LiveValidator" @submit.prevent="onSubmit">
-      <div class="flex flex-wrap items-end gap-4">
-        <UFormField label="Дата" name="date">
-          <UInput v-model="form.date" type="date" />
-        </UFormField>
-
-        <UFormField label="Кол-во" name="count">
-          <UInput v-model.number="form.count" type="number" min="0" />
-        </UFormField>
-
-        <UFormField label="Гео" name="geo">
-          <USelect
-              v-model="form.geo"
-              :items="geoItems"
-              option-attribute="label"
-              value-attribute="value"
-              placeholder="Выбери гео"
-          />
-        </UFormField>
-
-        <div class="flex gap-2">
-          <UButton
-              type="submit"
-              variant="ghost"
-              size="lg"
-              class="rounded-xl px-6"
-              :loading="isSubmitting"
-              :disabled="!isValid"
-          >
-            {{ mode === 'create' ? 'Сохранить' : 'Обновить' }}
-          </UButton>
-
-          <UButton
-              v-if="mode === 'create'"
-              type="button"
-              variant="ghost"
-              size="lg"
-              class="rounded-xl px-6"
-              @click="resetForm()"
-              :disabled="isSubmitting"
-          >
-            Очистить
-          </UButton>
-        </div>
-      </div>
-    </UForm>
-  </UCard>
 </template>
