@@ -1,7 +1,6 @@
 // stores/agent.store.ts
 import {defineStore} from 'pinia'
 import {computed, ref} from 'vue'
-import {useRoute} from "#vue-router";
 
 export type Agent = {
     id: number
@@ -9,6 +8,19 @@ export type Agent = {
     isActive: boolean
     createdAt: string
     updatedAt: string
+}
+
+export type Analytics = {
+    calls: any[]
+    live: any[]
+    messangers: any[]
+}
+
+export type AnalyticsResponse = {
+    data: Analytics
+    callsCount: number
+    liveCount: number
+    messangersCount: number
 }
 
 export type AgentsResponse = {
@@ -27,8 +39,6 @@ export type AgentsResponse = {
 }
 
 
-
-
 export type CreateAgentPayload = {
     stage: string
     isActive: boolean
@@ -42,8 +52,9 @@ const q = {
     sortOrder: 'asc' as 'asc' | 'desc',
     search: undefined as string | undefined,
     isActive: undefined as boolean | undefined,
+    date__gte: undefined as string | undefined,
+    date__lte: undefined as string | undefined,
 }
-
 
 
 const toast = useToast()
@@ -54,6 +65,11 @@ export const useAgentStore = defineStore('agents', () => {
     // state
     const data = ref<Agent[]>([])
     const count = ref<number>(0)
+    const callsCount = ref(0)
+    const liveCount = ref(0)
+    const messangersCount = ref(0)
+
+    const analytics = ref<Analytics | null>(null)
     const meta = ref<AgentsResponse['meta'] | null>(null)
     const loading = ref(false)
     const agentId = ref<number | null>(null)
@@ -81,6 +97,18 @@ export const useAgentStore = defineStore('agents', () => {
         }
     }
 
+    async function getAnalytics(agentId: number) {
+        loading.value = true
+        error.value = null
+        try {
+            return await $fetch<AnalyticsResponse>(`/api/agents/${agentId}/analytics`, {query: params})
+        } catch (e: any) {
+            console.error(e)
+            error.value = e?.message ?? 'Failed to get analytics'
+        } finally {
+            loading.value = false
+        }
+    }
     async function getById(id: number) {
         try {
             const res = await $fetch<Agent>(`/api/agents/${id}`)
@@ -159,8 +187,8 @@ export const useAgentStore = defineStore('agents', () => {
 
     return {
         // state
-        data, agentsList, selectedAgent, count, meta, loading, error, params,
+        data, agentsList, analytics, selectedAgent, count, meta, loading, error, params,
         // actions
-        getAll, getById, create, update, resetParams,
+        getAll, getAnalytics, getById, create, update, resetParams,
     }
 })

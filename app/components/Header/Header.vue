@@ -1,18 +1,12 @@
 <script setup lang="ts">
+const route = useRoute()
+
 </script>
 
 <template>
-  <UCard>
-    <nav class="flex gap-8 text-lg">
-      <ULink to="/agents" active-class="text-primary font-semibold border-b-2 border-primary pb-1">
-        Агенты
-      </ULink>
-      <ULink to="/live" active-class="text-primary font-semibold border-b-2 border-primary pb-1">
-        Лайв
-      </ULink>
-      <ULink to="/messanger" active-class="text-primary font-semibold border-b-2 border-primary pb-1">
-        Мессенджеры
-      </ULink>
-    </nav>
-  </UCard>
+  <div>
+    <UButton v-if="route.path!=='/agents'" class="ml-8 mt-4" icon="mdi-account" to="/agents">
+      Агенты
+    </UButton>
+  </div>
 </template>
