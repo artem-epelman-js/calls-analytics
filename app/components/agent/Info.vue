@@ -33,7 +33,7 @@ watch(() => selected.value, () => {
 </script>
 
 <template>
-  <UCard class="mt-10">
+  <UCard class="mt-10 w-[50%]">
     <div>
       <USelect v-if="agent.id" click
                v-model="selected"
@@ -61,9 +61,10 @@ watch(() => selected.value, () => {
       <div v-if="agent?.createdAt">
         <p class="text-sm font-medium text-gray-500 dark:text-gray-400">Добавлен</p>
         <p class="mt-2 text-base font-medium">
-          <!--          {{ format(new Date(agent?.createdAt || ''), 'dd.MM.yy') }}-->
+                    {{ format(new Date(agent?.createdAt || ''), 'dd.MM.yy') }}
         </p>
       </div>
     </div>
   </UCard>
+
 </template>

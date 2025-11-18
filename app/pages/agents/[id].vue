@@ -11,7 +11,6 @@ import type {TableColumn} from "#ui/components/Table.vue";
 import {type CreateLivePayload, type Live, type UpdateLivePayload} from '~~/stores/live.store'
 import {renderSortableHeader, type SortableField, toggleSort} from "~/app_helpers/sort-helper";
 import {useLiveStore} from "~~/stores/live.store";
-import {LiveValidator} from "~~/validators/live.validator";
 import type {Agent, Calls} from "@prisma/client";
 import {messangerValidator} from "~~/validators/messanger.validator";
 import {type CreateMessangerPayload, type UpdateMessangerPayload, useMessangerStore} from "~~/stores/messanger.store";
@@ -36,6 +35,8 @@ definePageMeta({
 const startDate = ref<string | undefined>(undefined)
 const endDate = ref<string | undefined>(undefined)
 const activeTab = ref<'calls' | 'live' | 'messengers'>('calls')
+const activeAnalyticsTab = ref<'callsAnalytics' | 'liveAnalytics' | 'messangersAnalytics'>('callsAnalytics')
+
 const showCreateLiveForm = ref<boolean>(false)
 const showUpdateLiveForm = ref<boolean>(false)
 const showCreateMessangerForm = ref<boolean>(false)
@@ -49,8 +50,10 @@ const agent = ref<Agent>({})
 
 // stores
 // -- agentStore
-const {data: agents} = storeToRefs(useAgentStore())
-const {getAll: getAgents, getById: getAgentById} = useAgentStore()
+const {data: agents, analytics, params} = storeToRefs(useAgentStore())
+const {getAll: getAgents, getAnalytics, getById: getAgentById} = useAgentStore()
+const analyticsData = ref<any | null>(null)
+
 
 // -- call store
 const {getAll: getCalls, remove: deleteCall} = useCallStore()
@@ -91,6 +94,26 @@ const tabs = [
     slot: 'messanger',
     value: 'messanger'
 
+  },
+]
+const analyticsTabs = [
+  {
+    label: 'Звонки',
+    icon: 'solar:phone-bold',
+    slot: 'callsAnalytics',
+    value: 'callsAnalytics'
+  },
+  {
+    label: 'Лайв',
+    icon: 'solar:phone-bold',
+    slot: 'liveAnalytics',
+    value: 'liveAnalytics'
+  },
+  {
+    label: 'Мессенджеры',
+    icon: 'solar:phone-bold',
+    slot: 'messangersAnalytics',
+    value: 'messangersAnalytics'
   },
 ]
 const liveGeo = [
@@ -293,21 +316,6 @@ const callsColumns: TableColumn<Calls>[] = [
       const sec = Number(row.getValue('duration') ?? 0)
       return new Date(sec * 1000).toISOString().slice(11, 19)
     }
-  },
-  {
-    accessorKey: 'price',
-    header: renderSortableHeader('price', 'Цена', callsParams),
-
-    // cell: ({row}) => {
-    //   const price = Number.parseFloat(row.getValue('price'))
-    //
-    //   const formatted = new Intl.NumberFormat('en-US', {
-    //     style: 'currency',
-    //     currency: 'EUR'
-    //   }).format(price)
-    //
-    //   return h('div', {class: 'text-right font-medium'}, formatted)
-    // }
   },
   {
     accessorKey: 'status',
@@ -552,6 +560,14 @@ watch(liveParams, () => {
   getLive()
 }, {deep: true, immediate: true})
 
+
+watch(params, async () => {
+  analyticsData.value = await getAnalytics(agentId)
+}, {deep: true, immediate: true})
+
+
+
+
 watch([startDate, endDate], ([s, e], [os, oe]) => {
   // реагируем на изменения дат
   callsParams.value.date__gte = s || undefined
@@ -562,18 +578,30 @@ watch([startDate, endDate], ([s, e], [os, oe]) => {
 
   liveParams.value.date__gte = s || undefined
   liveParams.value.date__lte = e || undefined
+
+  params.value.date__gte = s || undefined
+  params.value.date__lte = e || undefined
+
+
 })
+
+
 
 // lifecycle hooks
 onMounted(async () => {
   callsParams.value.agentId = agentId
   messengersParams.value.agentId = agentId
   liveParams.value.agentId = agentId
+
+
+  analyticsData.value = await getAnalytics(agentId)
   agent.value = await getAgentById(agentId)
   await getAgents()
   await getCalls()
   await getLive()
   await getMessangers()
+
+  console.log('analytics value = ', analytics.value)
 })
 
 const agentsOptions = computed(() =>
@@ -592,12 +620,85 @@ function onAgentChange(id: number) {
 <template>
   <UContainer class="flex flex-col gap-6">
     <!--  Agent Info Card-->
-    <agent-info @change="onAgentChange" :agents-options="agentsOptions" :agent="agent"/>
+    <div class="flex gap-x-4 justify-between">
+      <agent-info @change="onAgentChange" :agents-options="agentsOptions" :agent="agent"/>
+      <UCard class="w-[50%] mt-10">
+        <p class="mb-4">Общий расход: {{analyticsData?.totalPrice}} $</p>
+        <UTabs v-model="activeAnalyticsTab" :items="analyticsTabs">
+
+
+
+<!--          Calls-->
+          <template class="" #callsAnalytics>
+            <div class="min-h-38">
+              <div class="grid grid-cols-2">
+                <div>
+                  <p class="mb-4">Колл-во</p>
+                  <p class="text-sm">Наборы - {{ analyticsData?.callsCount }}</p>
+                  <p class="text-sm">Время на линии - {{ analyticsData?.callsDuration }} с.</p>
+                </div>
+                <div>
+                  <p class="mb-4">Расход</p>
+                  <p class="text-sm">Расход по т-фонии - {{ Math.ceil(analyticsData?.callsDuration / 160) }} $</p>
+                </div>
+              </div>
+
+          </div>
+
+          </template>
+
+          <!--            Messangers-->
+          <template #messangersAnalytics>
+
+            <div class="min-h-38 grid grid-cols-2">
+              <div>
+                <p class="mb-4">Колл-во</p>
+                <p class="text-sm">Общее - {{ analyticsData?.allMessengersCount }}</p>
+                <p class="text-sm">Рекавери - {{ analyticsData?.messangersIsRecoveryCount }}</p>
+                <p class="text-sm">Не рекавери - {{ analyticsData?.messangersNonRecoveryCount }}</p>
+              </div>
+              <div class="">
+                <p class="mb-4">Расход</p>
+                <p class="text-sm">Общее - {{ analyticsData?.allMessengersPrice }} $</p>
+                <p class="text-sm">Рекавери - {{ analyticsData?.messangersIsRecoveryPrice }} $</p>
+                <p class="text-sm">Не рекавери - {{ analyticsData?.messangersNonRecoveryPrice }} $</p>
+              </div>
+            </div>
+          </template>
+
+<!--          Live-->
+          <template #liveAnalytics>
+            <div class="min-h-38 grid grid-cols-2">
+              <div>
+                <p class="mb-4">Колл-во</p>
+                <p class="text-sm">Общее- {{ analyticsData?.allLiveCount }}</p>
+                <p class="text-sm">KZ - {{ analyticsData.liveByKZCount }}</p>
+                <p class="text-sm">KG - {{ analyticsData.liveByKGCount }}</p>
+                <p class="text-sm">BY - {{ analyticsData.liveByBYCount }}</p>
+                <p class="text-sm">UZ - {{ analyticsData.liveByUZCount }}</p>
+              </div>
+
+
+              <div>
+                <p class="mb-4">Расход</p>
+                <p class="text-sm">Общее - {{ analyticsData?.allLivePrice }} $</p>
+                <p class="text-sm">KZ - {{ analyticsData.liveByKZPrice }} $</p>
+                <p class="text-sm">KG - {{ analyticsData.liveByKGPrice }} $</p>
+                <p class="text-sm">BY - {{ analyticsData.liveByBYPrice }} $</p>
+                <p class="text-sm">UZ - {{ analyticsData.liveByUZPrice }} $</p>
+              </div>
+          </div>
+
+          </template>
+        </UTabs>
+      </UCard>
+
+    </div>
+
 
     <UCard>
       <!--Data Container-->
       <div class="grid grid-cols-1 gap-6">
-
         <!--Date Card-->
         <div class="flex justify-between w-150">
           <div>
@@ -684,7 +785,6 @@ function onAgentChange(id: number) {
                     Сохранить
                   </UButton>
                 </div>
-
               </UForm>
               <UForm v-if="showUpdateLiveForm"
                      :shema="LiveValidator"
