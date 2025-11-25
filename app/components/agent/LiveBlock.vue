@@ -35,7 +35,6 @@ defineProps<{
       />
     </UCard>
 
-    <button @click="emit('penisSosal', 2)">фдвиф</button>
 
     <UPagination
         class="flex justify-center mt-4"
