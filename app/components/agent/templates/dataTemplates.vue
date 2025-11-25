@@ -2,14 +2,19 @@
 
 import {messangerValidator} from "~~/validators/messanger.validator";
 import {UButton} from "#components";
-import {reactive, ref} from "vue";
+import {ref} from "vue";
 import {storeToRefs} from "pinia";
 import {useCallStore} from "~~/stores/call.store";
-import {type CreateLivePayload, type UpdateLivePayload, useLiveStore} from "~~/stores/live.store";
+import {useLiveStore} from "~~/stores/live.store";
 import {useTabsColumns} from "~/services/tableColumns";
-import {type CreateMessangerPayload, type UpdateMessangerPayload, useMessangerStore} from "~~/stores/messanger.store";
+import {useMessangerStore} from "~~/stores/messanger.store";
+
 import {useRoute} from "#vue-router";
-const activeTab = ref<'calls' | 'live' | 'messengers'>('calls')
+import {useRowActions} from "~/services/tableActions";
+import {useMessangerHandlers} from "~/hooks/useMessangerHandlers";
+import {useLiveHandlers} from "~/hooks/useLiveHandlers";
+
+const activeTab = ref<'calls' | 'live' | 'messanger'>('calls')
 const tabs = [
   {
     label: 'Звонки',
@@ -35,6 +40,9 @@ const file = ref<File | null>(null)
 const route = useRoute()
 const agentId = Number(route.params.id as string)
 
+
+
+
 async function uploadCalls() {
   if (!file.value) {
     alert('Пожалуйста, выберите файл.')
@@ -51,6 +59,7 @@ async function uploadCalls() {
     if (!resp.ok) throw new Error(data?.statusMessage || 'Ошибка при загрузке файла.')
     alert('Файл успешно загружен!')
     await getCalls()
+
     file.value = null
   } catch (e: any) {
     console.error(e)
@@ -58,25 +67,14 @@ async function uploadCalls() {
   } finally {
   }
 }
-const {data: calls, count: callsCount, params: callsParams} = storeToRefs(useCallStore())
 
-const showCreateLiveForm = ref<boolean>(false)
-const showUpdateLiveForm = ref<boolean>(false)
+const callsStore = useCallStore()
+const {getAll: getCalls} = callsStore
+const {data: calls, count: callsCount, params: callsParams} = storeToRefs(callsStore)
 
-const liveCreateForm = reactive<CreateLivePayload>({
-  agentId: agentId,
-  geo: '',
-  count: null,
-  date: '',
-})
-async function handleLiveCreate() {
-  try {
-    await createLive({...liveCreateForm})
-    showCreateLiveForm.value = false
-  } catch (e) {
-    console.error('Create live failed:', e)
-  }
-}
+
+
+
 const liveGeo = [
   {
     label: 'KZ',
@@ -96,57 +94,37 @@ const liveGeo = [
   },
 
 ]
-const {data: live, update, count: liveCount, params: liveParams} = storeToRefs(useLiveStore())
+const {data: live, count: liveCount, params: liveParams} = storeToRefs(useLiveStore())
+const {data: messangers, count: messengersCount, params: messengersParams} = storeToRefs(useMessangerStore())
 
-const {callsColumns, liveColumns, messangerColumns} = useTabsColumns()
-const liveUpdateForm = reactive<UpdateLivePayload>({
-  id: null,
-  geo: '',
-  count: null,
-  date: '',
+const liveHandlers = useLiveHandlers()
+const messangerHandlers = useMessangerHandlers()
+
+const rowActions = useRowActions({
+  onLiveEdit: (row) => {
+    liveHandlers.showUpdateLiveFormData.value = true
+    liveHandlers.liveUpdateFormData.id = row.original.id
+    liveHandlers.liveUpdateFormData.date = row.original.date
+    liveHandlers.liveUpdateFormData.geo = row.original.geo
+    liveHandlers.liveUpdateFormData.count = row.original.count
+  },
+  onMessangerEdit: (row) => {
+    messangerHandlers.showUpdateMessangerFormData.value = true
+    messangerHandlers.messangerUpdateFormData.id = row.original.id
+    messangerHandlers.messangerUpdateFormData.date = row.original.date
+    messangerHandlers.messangerUpdateFormData.isRecovery = row.original.isRecovery
+    messangerHandlers.messangerUpdateFormData.count = row.original.count
+    messangerHandlers.messangerUpdateFormData.price = row.original.price
+    messangerHandlers.messangerUpdateFormData.type = row.original.type
+  },
 })
-async function handleLiveUpdate() {
-  if (!liveUpdateForm.id) return // на всякий случай
-  await update(liveUpdateForm.id, {
-    count: liveUpdateForm.count ?? undefined,
-    geo: liveUpdateForm.geo ?? undefined,
-    date: liveUpdateForm.date || undefined,
-  })
-  showUpdateLiveForm.value = false
-}
 
-
-
-const {getAll: getCalls, remove: deleteCall} = useCallStore()
-
-
-const showCreateMessangerForm = ref<boolean>(false)
-const messangerCreateForm = reactive<CreateMessangerPayload>({
-  agentId: agentId,
-  type: '',
-  count: null,
-  date: '',
-  price: null,
-  isRecovery: false,
-
+const { callsColumns, liveColumns, messangerColumns } = useTabsColumns({
+  callActions: rowActions.callActions,
+  liveActions: rowActions.liveActions,
+  messangerActions: rowActions.messangerActions
 })
-const messangerUpdateForm = reactive<UpdateMessangerPayload>({
-  id: null,
-  type: '',
-  count: null,
-  date: '',
-  price: null,
-  isRecovery: false,
-})
-async function handleMessangerCreate() {
-  try {
-    console.log(messangerCreateForm)
-    await createMessanger(messangerCreateForm)
-    showCreateMessangerForm.value = false
-  } catch (e) {
-    console.error('Create messanger failed:', e)
-  }
-}
+
 
 const messangerTypes = [
   {
@@ -169,19 +147,6 @@ const isRecovery = [
   },
 ]
 
-const showUpdateMessangerForm = ref<boolean>(false)
-async function handleMessangerUpdate() {
-  if (!messangerUpdateForm.id) return // на всякий случай
-  await updateMessanger(messangerUpdateForm.id, {
-    type: messangerUpdateForm.type || undefined,
-    price: messangerUpdateForm.price || undefined,
-    isRecovery: messangerUpdateForm.isRecovery || undefined,
-    count: messangerUpdateForm.count ?? undefined,
-    date: messangerUpdateForm.date || undefined,
-  })
-  showUpdateLiveForm.value = false
-}
-const {data: messangers, count: messengersCount, params: messengersParams} = storeToRefs(useMessangerStore())
 
 </script>
 
@@ -205,7 +170,6 @@ const {data: messangers, count: messengersCount, params: messengersParams} = sto
           v-model:page="callsParams.page"
           v-model:take="callsParams.take"
           v-model:search="callsParams.search"
-
           :columns="callsColumns"
           :items="calls"
           :count="callsCount"
@@ -218,30 +182,30 @@ const {data: messangers, count: messengersCount, params: messengersParams} = sto
       <UCard class="rounded-2xl shadow-sm">
         <div class="flex justify-end">
           <UButton
-              :label="showCreateLiveForm ? 'Скрыть форму' : 'Добавить лайв'"
-              :icon="showCreateLiveForm ? 'i-lucide-minus' : 'i-lucide-plus'"
-              @click="showCreateLiveForm = !showCreateLiveForm"
+              :label="liveHandlers.showCreateLiveFormData.value ? 'Скрыть форму' : 'Добавить лайв'"
+              :icon="liveHandlers.showCreateLiveFormData.value ? 'i-lucide-minus' : 'i-lucide-plus'"
+              @click="liveHandlers.showCreateLiveFormData.value = !liveHandlers.showCreateLiveFormData.value"
           />
         </div>
 
-        <UForm v-if="showCreateLiveForm"
-               :state="liveCreateForm"
-               @submit.prevent=handleLiveCreate
+        <UForm v-show="liveHandlers.showCreateLiveFormData.value"
+               :state="liveHandlers.liveCreateFormData"
+               @submit.prevent=liveHandlers.handleLiveCreate
         >
           <div class="flex justify-start gap-4">
             <UFormField label="Дата" name="date">
-              <UInput v-model="liveCreateForm.date" type="date"/>
+              <UInput v-model="liveHandlers.liveCreateFormData.date" type="date"/>
             </UFormField>
 
             <UFormField label="Колл-во" name="count">
-              <UInput v-model.number="liveCreateForm.count"
+              <UInput v-model.number="liveHandlers.liveCreateFormData.count"
                       type="number"
                       min="0"/>
             </UFormField>
 
             <UFormField label="Гео" name="geo">
               <USelect
-                  v-model="liveCreateForm.geo"
+                  v-model="liveHandlers.liveCreateFormData.geo"
                   :items="liveGeo"
                   option-attribute="label"
                   value-attribute="value"
@@ -256,24 +220,26 @@ const {data: messangers, count: messengersCount, params: messengersParams} = sto
             </UButton>
           </div>
         </UForm>
-        <UForm v-if="showUpdateLiveForm"
-               :state="liveUpdateForm"
-               @submit="handleLiveUpdate"
+
+        <UForm v-show="liveHandlers.showUpdateLiveFormData.value"
+               :state="liveHandlers.liveUpdateFormData"
+               @submit="liveHandlers.handleLiveUpdate"
         >
+
           <div class="flex justify-start gap-4">
             <UFormField label="Дата" name="date">
-              <UInput v-model="liveUpdateForm.date" type="date"/>
+              <UInput v-model="liveHandlers.liveUpdateFormData.date" type="date"/>
             </UFormField>
 
             <UFormField label="Колл-во" name="count">
-              <UInput v-model.number="liveUpdateForm.count"
+              <UInput v-model.number="liveHandlers.liveUpdateFormData.count"
                       type="number"
                       min="0"/>
             </UFormField>
 
             <UFormField label="Гео" name="geo">
               <USelect
-                  v-model="liveUpdateForm.geo"
+                  v-model="liveHandlers.liveUpdateFormData.geo"
                   :items="liveGeo"
                   option-attribute="label"
                   value-attribute="value"
@@ -290,7 +256,7 @@ const {data: messangers, count: messengersCount, params: messengersParams} = sto
             <UButton type="button"
                      variant="ghost"
                      size="lg"
-                     @click="showUpdateLiveForm = false"
+                     @click="liveHandlers.showUpdateLiveFormData.value = false"
                      color="error"
                      class="rounded-xl px-6">
               Отмена
@@ -309,115 +275,115 @@ const {data: messangers, count: messengersCount, params: messengersParams} = sto
       />
     </template>
 
-    <!--          Messangers Template -->
-    <template #messanger>
+        <template #messanger>
 
-      <!--       messangers card    -->
-      <UCard class="rounded-2xl shadow-sm">
-        <div class="flex justify-end">
-          <UButton
-              :label="showCreateMessangerForm ? 'Скрыть форму' : 'Добавить мессенджер'"
-              :icon="showCreateMessangerForm ? 'i-lucide-minus' : 'i-lucide-plus'"
-              @click="showCreateMessangerForm = !showCreateMessangerForm"
+          <!--       messangers card    -->
+          <UCard class="rounded-2xl shadow-sm">
+            <div class="flex justify-end">
+              <UButton
+                  :label="messangerHandlers.showCreateMessangerFormData.value ? 'Скрыть форму' : 'Добавить мессенджер'"
+                  :icon="messangerHandlers.showCreateMessangerFormData.value ? 'i-lucide-minus' : 'i-lucide-plus'"
+                  @click="messangerHandlers.showCreateMessangerFormData.value = !messangerHandlers.showCreateMessangerFormData.value"
+              />
+            </div>
+
+            <UForm v-if="messangerHandlers.showCreateMessangerFormData.value"
+                   :state="messangerHandlers.messangerCreateFormData"
+                   @submit.prevent=messangerHandlers.handleMessangerCreate
+            >
+              <div class="flex justify-start gap-4">
+                <UFormField label="Дата" name="date">
+                  <UInput v-model="messangerHandlers.messangerCreateFormData.date" type="date"/>
+                </UFormField>
+
+                <UFormField label="Колл-во" name="count">
+                  <UInput v-model.number="messangerHandlers.messangerCreateFormData.count"
+                          type="number"
+                          min="0"/>
+                </UFormField>
+
+                <UFormField label="Тип" name="type">
+                  <USelect
+                      v-model="messangerHandlers.messangerCreateFormData.type"
+                      :items="messangerTypes"
+                      option-attribute="label"
+                      value-attribute="value"
+                      placeholder="Выбери тип"
+                  />
+                </UFormField>
+                <UFormField label="Рекавери" name="isRecovery">
+                  <USelect
+                      v-model="messangerHandlers.messangerCreateFormData.isRecovery"
+                      :items="isRecovery"
+                      option-attribute="label"
+                      value-attribute="value"
+                      placeholder="Рекавери"
+                  />
+                </UFormField>
+                <UButton type="submit"
+                         variant="ghost"
+                         size="lg"
+                         class="rounded-xl px-6">
+                  Сохранить
+                </UButton>
+              </div>
+
+            </UForm>
+            <UForm v-if="messangerHandlers.showUpdateMessangerFormData.value"
+                   :shcema="messangerValidator"
+                   :state="messangerHandlers.messangerUpdateFormData"
+                   @submit="messangerHandlers.handleMessangerUpdate"
+            >
+
+              <div class="flex justify-start gap-4">
+                <UFormField label="Дата" name="date">
+                  <UInput v-model="messangerHandlers.messangerUpdateFormData.date" type="date"/>
+                </UFormField>
+
+                <UFormField label="Колл-во" name="count">
+                  <UInput v-model.number="messangerHandlers.messangerUpdateFormData.count"
+                          type="number"
+                          min="0"/>
+                </UFormField>
+
+                <UFormField label="Тип" name="type">
+                  <USelect
+                      v-model="messangerHandlers.messangerUpdateFormData.type"
+                      :items="messangerTypes"
+                      option-attribute="label"
+                      value-attribute="value"
+                      placeholder="Выбери тип"
+                  />
+                </UFormField>
+
+                <UButton type="submit"
+                         variant="ghost"
+                         size="lg"
+                         class="rounded-xl px-6">
+                  Сохранить
+                </UButton>
+                <UButton type="button"
+                         variant="ghost"
+                         size="lg"
+                         color="error"
+                         @click="messangerHandlers.showUpdateMessangerFormData.value = false"
+                         class="rounded-xl px-6">
+                  Отмена
+                </UButton>
+              </div>
+            </UForm>
+            </UCard>
+          <agent-messengers-block
+
+              v-model:page="messengersParams.page"
+              v-model:take="messengersParams.limit"
+
+              :columns="messangerColumns"
+              :count="messengersCount"
+              :items="messangers"
           />
-        </div>
 
-        <UForm v-if="showCreateMessangerForm"
-               :state="messangerCreateForm"
-               @submit.prevent=handleMessangerCreate
-        >
-          <div class="flex justify-start gap-4">
-            <UFormField label="Дата" name="date">
-              <UInput v-model="messangerCreateForm.date" type="date"/>
-            </UFormField>
-
-            <UFormField label="Колл-во" name="count">
-              <UInput v-model.number="messangerCreateForm.count"
-                      type="number"
-                      min="0"/>
-            </UFormField>
-
-            <UFormField label="Тип" name="type">
-              <USelect
-                  v-model="messangerCreateForm.type"
-                  :items="messangerTypes"
-                  option-attribute="label"
-                  value-attribute="value"
-                  placeholder="Выбери тип"
-              />
-            </UFormField>
-            <UFormField label="Рекавери" name="isRecovery">
-              <USelect
-                  v-model="messangerCreateForm.isRecovery"
-                  :items="isRecovery"
-                  option-attribute="label"
-                  value-attribute="value"
-                  placeholder="Рекавери"
-              />
-            </UFormField>
-            <UButton type="submit"
-                     variant="ghost"
-                     size="lg"
-                     class="rounded-xl px-6">
-              Сохранить
-            </UButton>
-          </div>
-
-        </UForm>
-        <UForm v-if="showUpdateMessangerForm"
-               :shema="messangerValidator"
-               :state="messangerUpdateForm"
-               @submit="handleMessangerUpdate"
-        >
-          <div class="flex justify-start gap-4">
-            <UFormField label="Дата" name="date">
-              <UInput v-model="messangerUpdateForm.date" type="date"/>
-            </UFormField>
-
-            <UFormField label="Колл-во" name="count">
-              <UInput v-model.number="messangerUpdateForm.count"
-                      type="number"
-                      min="0"/>
-            </UFormField>
-
-            <UFormField label="Тип" name="geo">
-              <USelect
-                  v-model="messangerUpdateForm.type"
-                  :items="messangerTypes"
-                  option-attribute="label"
-                  value-attribute="value"
-                  placeholder="Выбери тип"
-              />
-            </UFormField>
-
-            <UButton type="submit"
-                     variant="ghost"
-                     size="lg"
-                     class="rounded-xl px-6">
-              Сохранить
-            </UButton>
-            <UButton type="button"
-                     variant="ghost"
-                     size="lg"
-                     @click="showUpdateMessangerForm = false"
-                     color="error"
-                     class="rounded-xl px-6">
-              Отмена
-            </UButton>
-          </div>
-        </UForm>
-      </UCard>
-      <agent-messengers-block
-
-          v-model:page="messengersParams.page"
-          v-model:take="messengersParams.limit"
-
-          :columns="messangerColumns"
-          :count="messengersCount"
-          :items="messangers"
-      />
-
-    </template>
+        </template>
   </UTabs>
 </template>
 
