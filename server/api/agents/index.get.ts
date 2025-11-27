@@ -17,11 +17,7 @@ export default defineEventHandler(async (event) => {
             searchFields,
             filterable
         )
-            // .useSomeFor([...]) // если будут 1:N фильтры
-            .filter()
-            .search()
-            .sort({ sortBy: 'createdAt', sortOrder: 'desc' })
-            .paginate()
+            .sort({ sortBy: 'stage', sortOrder: 'asc' })
 
         const args = qb.build()
 
