@@ -12,15 +12,11 @@ export type Agent = {
 
 export type Analytics = {
     calls: any[]
-    live: any[]
-    messangers: any[]
 }
 
 export type AnalyticsResponse = {
     data: Analytics
     callsCount: number
-    liveCount: number
-    messangersCount: number
 }
 
 export type AgentsResponse = {
@@ -66,8 +62,6 @@ export const useAgentStore = defineStore('agents', () => {
     const data = ref<Agent[]>([])
     const count = ref<number>(0)
     const callsCount = ref(0)
-    const liveCount = ref(0)
-    const messangersCount = ref(0)
 
     const analytics = ref<Analytics | null>(null)
     const meta = ref<AgentsResponse['meta'] | null>(null)
@@ -182,13 +176,10 @@ export const useAgentStore = defineStore('agents', () => {
 
     const selectedAgent = computed(() => data.value.find(s => s.id === (selectedStage.value ?? -1)) ?? null)
 
-
-    // опционально: переключение статуса
-
     return {
         // state
         data, agentsList, analytics, selectedAgent, count, meta, loading, error, params,
         // actions
-        getAll, getAnalytics, getById, create, update, resetParams,
+        getAll, getById, create, update, resetParams,
     }
 })

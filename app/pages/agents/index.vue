@@ -2,9 +2,8 @@
 import {computed, ref, reactive, onMounted} from 'vue'
 import {storeToRefs} from 'pinia'
 import {watch} from "vue";
-import {useAgentStore} from '~~/stores/agent.store'
-import {agentValidator} from '~~/validators/agent.validator'
-import {onBeforeLeave} from "~/app_helpers/animation_helper";
+import {agentValidator} from "../../../validators/agent.validator";
+import {useAgentStore} from "../../../stores/agent.store";
 
 // stores
 const agentStore = useAgentStore()

@@ -4,7 +4,7 @@ import {UBadge} from "#components";
 import type {Agent} from "@prisma/client";
 import {format} from "date-fns";
 import {ref} from "vue";
-import type {SelectItem} from "#ui/components/Select.vue";
+import {SelectItem} from "@nuxt/ui/components/Select.vue";
 
 const props = defineProps<{
   agent: Agent,

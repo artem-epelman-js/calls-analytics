@@ -9,7 +9,7 @@ export default defineEventHandler(async (event) => {
 
         // 2) Разрешённые поля и поисковые
         const searchFields = ['stage']
-        const filterable   = ['isActive', 'createdAt']
+        const filterable   = ['isActive']
 
         // 3) Собираем аргументы для Prisma
         const qb = new QueryBuilder<Prisma.AgentFindManyArgs>(
@@ -18,6 +18,7 @@ export default defineEventHandler(async (event) => {
             filterable
         )
             .sort({ sortBy: 'stage', sortOrder: 'asc' })
+            .filter()
 
         const args = qb.build()
 

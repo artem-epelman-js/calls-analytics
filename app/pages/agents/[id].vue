@@ -5,9 +5,7 @@ import {ref} from 'vue'
 import {useRoute} from 'vue-router'
 import {storeToRefs} from "pinia";
 import {useCallStore} from "~~/stores/call.store";
-import {useLiveStore} from "~~/stores/live.store";
 import type {Agent} from "@prisma/client";
-import {useMessangerStore} from "~~/stores/messanger.store";
 import {useAgentStore} from "~~/stores/agent.store";
 import AnalyticsTemplates from "~/components/agent/templates/analyticsTemplates.vue";
 import DataTemplates from "~/components/agent/templates/dataTemplates.vue";
@@ -36,7 +34,7 @@ const agentId = Number(route.params.id as string)
 const startDate = ref<string | undefined>(undefined)
 const endDate = ref<string | undefined>(undefined)
 
-const agent = ref<Agent>({})
+const agent = ref<Agent>()
 const analyticsData = ref<any | null>(null)
 
 
@@ -50,17 +48,6 @@ const {getAll: getAgents, getAnalytics, getById: getAgentById} = agentsStore
 const callsStore = useCallStore()
 const {getAll: getCalls} = callsStore
 const {params: callsParams} = storeToRefs(callsStore)
-
-// -- live store
-const liveStore = useLiveStore()
-const {getAll: getLive} = liveStore
-const {params: liveParams} = storeToRefs(liveStore)
-
-// -- messanger store
-const messangerStore = useMessangerStore()
-
-const {getAll: getMessangers} = messangerStore
-const {params: messengersParams} = storeToRefs(messangerStore)
 
 
 
@@ -86,28 +73,15 @@ watch(callsParams, () => {
   getCalls()
 }, {deep: true})
 
-watch(messengersParams, () => {
-  getMessangers()
-}, {deep: true})
 
-watch(liveParams, () => {
-  getLive()
-}, {deep: true, immediate: true})
-
-watch(params, async () => {
-  analyticsData.value = await getAnalytics(agentId)
-}, {deep: true, immediate: true})
+// watch(params, async () => {
+//   analyticsData.value = await getAnalytics(agentId)
+// }, {deep: true, immediate: true})
 
 watch([startDate, endDate], ([s, e], [os, oe]) => {
   // реагируем на изменения дат
   callsParams.value.date__gte = s || undefined
   callsParams.value.date__lte = e || undefined
-
-  messengersParams.value.date__gte = s
-  messengersParams.value.date__lte = e
-
-  liveParams.value.date__gte = s || undefined
-  liveParams.value.date__lte = e || undefined
 
   params.value.date__gte = s || undefined
   params.value.date__lte = e || undefined
@@ -118,23 +92,14 @@ watch([startDate, endDate], ([s, e], [os, oe]) => {
 // lifecycle hooks
 onMounted(async () => {
   callsParams.value.agentId = agentId
-  messengersParams.value.agentId = agentId
-  liveParams.value.agentId = agentId
+
 
   analyticsData.value = await getAnalytics(agentId)
   agent.value = await getAgentById(agentId)
   await getAgents()
   await getCalls()
-  await getLive()
-  await getMessangers()
 })
 
-// onUnmounted(() => {
-//   agentsStore.resetParams()
-//   liveStore.resetParams()
-//   callsStore.resetParams()
-//   messangerStore.resetParams()
-// })
 
 
 </script>

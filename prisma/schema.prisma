@@ -8,14 +8,12 @@ generator client {
 }
 
 model Agent {
-  id        Int         @id @default(autoincrement())
+  id        Int      @id @default(autoincrement())
   stage     String
-  isActive  Boolean     @default(true)
-  createdAt DateTime    @default(now())
-  updatedAt DateTime    @updatedAt
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
   Call      Calls[]
-  Live      Live[]
-  Messanger Messanger[]
 }
 
 model Calls {
@@ -31,45 +29,4 @@ model Calls {
   agent     Agent?   @relation(fields: [agentId], references: [id])
 
   @@unique([phone, date])
-}
-
-model Live {
-  id        Int      @id @default(autoincrement())
-  agentId   Int
-  geo       String
-  date      DateTime
-  count     Int?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  agent     Agent?   @relation(fields: [agentId], references: [id])
-
-  @@unique([agentId, geo, date], name: "agentId_geo_date")
-}
-
-model Messanger {
-  id         Int           @id @default(autoincrement())
-  agentId    Int
-  date       DateTime
-  count      Int
-  price      Int           @default(10)
-  type       MessangerType
-  isRecovery Boolean       @default(false)
-  createdAt  DateTime      @default(now())
-  updatedAt  DateTime      @updatedAt
-  agent      Agent         @relation(fields: [agentId], references: [id])
-
-  @@index([date])
-  @@index([agentId])
-}
-
-enum MessangerType {
-  TELEGRAM
-  WHATSAPP
-}
-
-enum geo {
-  KZ
-  KG
-  UZ
-  BY
 }
